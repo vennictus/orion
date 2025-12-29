@@ -1,27 +1,28 @@
-import { unsignedLEB128 } from "./leb128";
+import {
+  Section,
+  ValType,
+  Opcode,
+  ExportKind,
+  FUNC_TYPE,
+} from "./constants";
+import { unsignedLEB128, encodeString } from "./encoding";
 
 // WASM headers
 const MAGIC = [0x00, 0x61, 0x73, 0x6d];
 const VERSION = [0x01, 0x00, 0x00, 0x00];
 
-// Section IDs
-const SECTION_TYPE = 0x01;
-const SECTION_FUNCTION = 0x03;
-const SECTION_EXPORT = 0x07;
-const SECTION_CODE = 0x0a;
-
-// Value types
-const F32 = 0x7d;
-
-// Opcodes
-const GET_LOCAL = 0x20;
-const F32_ADD = 0x92;
-const END = 0x0b;
-
-// Create a WASM section
-function createSection(id: number, payload: number[]): number[] {
+// Encode a vector of entries
+function encodeVector(entries: number[][]): number[] {
   return [
-    id,
+    ...unsignedLEB128(entries.length),
+    ...entries.flat(),
+  ];
+}
+
+// Create a section
+function createSection(section: Section, payload: number[]): number[] {
+  return [
+    section,
     ...unsignedLEB128(payload.length),
     ...payload,
   ];
@@ -29,68 +30,64 @@ function createSection(id: number, payload: number[]): number[] {
 
 export function emitter(): Uint8Array {
   /* ---------- TYPE SECTION ---------- */
-  const funcType = [
-    0x60,                  // func
-    ...unsignedLEB128(2),  // param count
-    F32, F32,              // param types
-    ...unsignedLEB128(1),  // result count
-    F32,                   // result type
+  const addType = [
+    FUNC_TYPE,
+    ...unsignedLEB128(2),
+    ValType.f32,
+    ValType.f32,
+    ...unsignedLEB128(1),
+    ValType.f32,
   ];
 
   const typeSection = createSection(
-    SECTION_TYPE,
-    [
-      ...unsignedLEB128(1), // ✅ one function type
-      ...funcType,
-    ]
+    Section.Type,
+    encodeVector([addType])
   );
 
   /* ---------- FUNCTION SECTION ---------- */
-  const functionSection = createSection(
-    SECTION_FUNCTION,
-    [
-      ...unsignedLEB128(1), // one function
-      ...unsignedLEB128(0), // uses type 0
-    ]
+  const funcSection = createSection(
+    Section.Function,
+    encodeVector([[...unsignedLEB128(0)]])
   );
 
   /* ---------- EXPORT SECTION ---------- */
-  const exportName = Array.from(Buffer.from("add"));
+  const exportEntry = [
+    ...encodeString("add"),
+    ExportKind.func,
+    ...unsignedLEB128(0),
+  ];
 
   const exportSection = createSection(
-    SECTION_EXPORT,
-    [
-      ...unsignedLEB128(1),              // one export
-      ...unsignedLEB128(exportName.length),
-      ...exportName,
-      0x00,                              // export kind: function
-      ...unsignedLEB128(0),              // function index
-    ]
+    Section.Export,
+    encodeVector([exportEntry])
   );
 
   /* ---------- CODE SECTION ---------- */
-  const functionBody = [
-    ...unsignedLEB128(0), // locals count
-    GET_LOCAL, ...unsignedLEB128(0),
-    GET_LOCAL, ...unsignedLEB128(1),
-    F32_ADD,
-    END,
+  const body = [
+    ...unsignedLEB128(0), // locals
+    Opcode.get_local,
+    ...unsignedLEB128(0),
+    Opcode.get_local,
+    ...unsignedLEB128(1),
+    Opcode.f32_add,
+    Opcode.end,
   ];
 
   const codeSection = createSection(
-    SECTION_CODE,
-    [
-      ...unsignedLEB128(1),              // one function body
-      ...unsignedLEB128(functionBody.length),
-      ...functionBody,
-    ]
+    Section.Code,
+    encodeVector([
+      [
+        ...unsignedLEB128(body.length),
+        ...body,
+      ],
+    ])
   );
 
   return Uint8Array.from([
     ...MAGIC,
     ...VERSION,
     ...typeSection,
-    ...functionSection,
+    ...funcSection,
     ...exportSection,
     ...codeSection,
   ]);
