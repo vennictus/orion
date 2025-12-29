@@ -28,7 +28,10 @@ function createSection(section: Section, payload: number[]): number[] {
   ];
 }
 
-export function emitter(): Uint8Array {
+import { Program } from "../types/parser";
+
+export function emitter(_ast: Program): Uint8Array {
+
   /* ---------- TYPE SECTION ---------- */
   const addType = [
     FUNC_TYPE,
@@ -52,7 +55,7 @@ export function emitter(): Uint8Array {
 
   /* ---------- EXPORT SECTION ---------- */
   const exportEntry = [
-    ...encodeString("add"),
+    ...encodeString("run"),
     ExportKind.func,
     ...unsignedLEB128(0),
   ];

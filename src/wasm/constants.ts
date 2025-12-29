@@ -14,7 +14,9 @@ export enum ValType {
 
 // Opcodes
 export enum Opcode {
+  call = 0x10,       // NEW (needed for print)
   get_local = 0x20,
+  f32_const = 0x43,  // NEW (needed for numberLiteral)
   f32_add = 0x92,
   end = 0x0b,
 }
@@ -26,3 +28,4 @@ export enum ExportKind {
 
 // Function type marker
 export const FUNC_TYPE = 0x60;
+

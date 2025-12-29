@@ -1,17 +1,29 @@
-import { emitter } from "./wasm/module";
+import { compile } from "./compiler";
 
 async function main() {
-  const wasmBytes = emitter();
+  const wasm = compile("print 8 print 24");
 
-  
-  const wasmBuffer = new Uint8Array(wasmBytes).slice().buffer;
+  console.log("WASM bytes:", wasm.length);
 
-  const module = await WebAssembly.compile(wasmBuffer);
-  const instance = await WebAssembly.instantiate(module);
+  const buffer = wasm.buffer.slice(
+    wasm.byteOffset,
+    wasm.byteOffset + wasm.byteLength
+  );
 
-  const add = instance.exports.add as (a: number, b: number) => number;
+  // 👇 THIS is the test
+ const result = await WebAssembly.instantiate(
+  buffer as BufferSource
+);
 
-  console.log(add(5, 6)); // MUST print 11
+const instance = result.instance;
+
+
+  console.log("Exports:", Object.keys(instance.exports));
+
+  // run exists but does nothing yet
+  (instance.exports.run as Function)();
+
+  console.log("OK: module instantiated and ran");
 }
 
 main().catch(console.error);
