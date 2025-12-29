@@ -1,17 +1,17 @@
-// src/index.ts
 import { emitter } from "./wasm/module";
 
 async function main() {
-  const wasm = emitter();
+  const wasmBytes = emitter();
 
-  // This should NOT throw
-  const instance = await WebAssembly.instantiate(wasm);
+  
+  const wasmBuffer = new Uint8Array(wasmBytes).slice().buffer;
 
-  console.log("WASM module instantiated successfully");
-  console.log(instance);
+  const module = await WebAssembly.compile(wasmBuffer);
+  const instance = await WebAssembly.instantiate(module);
+
+  const add = instance.exports.add as (a: number, b: number) => number;
+
+  console.log(add(5, 6)); // MUST print 11
 }
 
-main().catch((err) => {
-  console.error("Failed to instantiate WASM module:");
-  console.error(err);
-});
+main().catch(console.error);
