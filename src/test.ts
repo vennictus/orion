@@ -1,15 +1,26 @@
-import { runtime } from "./runtime";
+import { compile } from "./compiler";
 
-(async () => {
+async function testPrint() {
   const output: number[] = [];
 
-  const tick = await runtime("print 8 print 24", {
-    print: (v: number) => {
-      output.push(v);
+  const wasm = compile("print 8 print 24");
+  const buffer = new Uint8Array(wasm).buffer;
+
+  const module = await WebAssembly.compile(buffer);
+  const instance = await WebAssembly.instantiate(module, {
+    env: {
+      print: (value: number) => output.push(value),
     },
   });
 
-  tick();
+  (instance.exports.run as Function)();
 
-  console.log("OUTPUT:", output);
-})();
+  // 🔒 HARD ASSERTION
+  if (JSON.stringify(output) !== JSON.stringify([8, 24])) {
+    throw new Error(`Print failed: ${JSON.stringify(output)}`);
+  }
+
+  console.log("✅ print test passed:", output);
+}
+
+testPrint().catch(console.error);

@@ -1,6 +1,7 @@
 // WASM section ids
 export enum Section {
   Type = 0x01,
+  Import = 0x02,
   Function = 0x03,
   Export = 0x07,
   Code = 0x0a,

@@ -4,15 +4,18 @@ import { Runtime } from "./types/runtime";
 export const runtime: Runtime = async (src, environment) => {
   const wasm = compile(src);
 
-  const buffer = new Uint8Array(wasm).slice().buffer;
+  // 🔑 force real ArrayBuffer (not SharedArrayBuffer)
+  const buffer = new Uint8Array(wasm).buffer;
 
-  const result = await WebAssembly.instantiate(
-    buffer,
-    ({ env: environment } as unknown) as WebAssembly.Imports
-  );
+  const module = await WebAssembly.compile(buffer);
+
+  const instance = await WebAssembly.instantiate(module, {
+    env: {
+      print: environment.print,
+    },
+  });
 
   return () => {
-    (result.instance.exports.run as Function)();
+    (instance.exports.run as Function)();
   };
 };
-  
