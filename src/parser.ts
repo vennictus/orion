@@ -9,13 +9,15 @@ import {
   PrintStatementNode,
   NumberLiteralNode,
   BinaryExpressionNode,
-  Operator,
   VariableDeclarationNode,
+  AssignmentStatementNode,
+  BlockStatementNode,
   IdentifierNode,
+  Operator,
 } from "./types/parser";
 
 export class ParserError extends Error {
-  constructor(message: string, public token: Token) {
+  constructor(message: string, public token?: Token) {
     super(message);
   }
 }
@@ -23,8 +25,6 @@ export class ParserError extends Error {
 export const parse: Parser = (tokens) => {
   const iterator = tokens[Symbol.iterator]();
   let current = iterator.next().value as Token | undefined;
-
-  /* ---------- TOKEN CONSUMPTION ---------- */
 
   const eat = (expectedValue?: string) => {
     if (!current) return;
@@ -39,87 +39,96 @@ export const parse: Parser = (tokens) => {
     current = iterator.next().value;
   };
 
-  const expectIdentifier = (): string => {
-    if (!current || current.type !== "identifier") {
-      throw new ParserError(
-        `Expected identifier, got ${current?.type}`,
-        current!
-      );
-    }
+  /* ---------- EXPRESSIONS ---------- */
+const parseExpression = (): ExpressionNode => {
+  if (!current) {
+    throw new ParserError("Unexpected end of input");
+  }
 
+  // -------- NUMBER --------
+  if (current.type === "number") {
+    const value = Number(current.value);
+    eat();
+    return {
+      type: "numberLiteral",
+      value,
+    };
+  }
+
+  // -------- IDENTIFIER --------
+  if (current.type === "identifier") {
     const name = current.value;
     eat();
-    return name;
-  };
+    return {
+      type: "identifier",
+      name,
+    };
+  }
 
-  /* ---------- EXPRESSIONS ---------- */
+  // -------- GROUPED EXPRESSION --------
+  if (current.type === "parens" && current.value === "(") {
+    eat("(");
 
-  const parseExpression = (): ExpressionNode => {
-    if (!current) {
-      throw new ParserError(
-        "Unexpected end of input",
-        tokens[tokens.length - 1]
-      );
+    const left = parseExpression();
+
+    // 🔑 SNAPSHOT operator token
+    const operatorToken = current;
+    if (!operatorToken || operatorToken.type !== "operator") {
+      throw new ParserError("Expected operator", operatorToken);
     }
 
-    switch (current.type) {
-      case "number": {
-        const node: NumberLiteralNode = {
-          type: "numberLiteral",
-          value: Number(current.value),
-        };
-        eat();
-        return node;
-      }
+    const operator = operatorToken.value as Operator;
+    eat(); // consume operator
 
-      case "identifier": {
-        const node: IdentifierNode = {
-          type: "identifier",
-          name: current.value,
-        };
-        eat();
-        return node;
-      }
+    const right = parseExpression();
 
-      case "parens": {
-        eat("("); // (
-
-        const left = parseExpression();
-
-        if (!current) {
-          throw new ParserError("Expected operator", current!);
-        }
-
-        const operator = current.value as Operator;
-        eat();
-
-        const right = parseExpression();
-        eat(")"); // )
-
-        const node: BinaryExpressionNode = {
-          type: "binaryExpression",
-          operator,
-          left,
-          right,
-        };
-
-        return node;
-      }
-
-      default:
-        throw new ParserError(
-          `Unexpected token type ${current.type}`,
-          current
-        );
+    // 🔑 SNAPSHOT closing paren
+    const closing = current;
+    if (!closing || closing.type !== "parens" || closing.value !== ")") {
+      throw new ParserError("Expected ')'", closing);
     }
-  };
+
+    eat(")");
+
+    return {
+      type: "binaryExpression",
+      left,
+      right,
+      operator,
+    };
+  }
+
+  throw new ParserError(
+    `Unexpected token '${current.value}'`,
+    current
+  );
+};
+
 
   /* ---------- STATEMENTS ---------- */
+
+  const parsePrintStatement = (): PrintStatementNode => {
+    eat("print");
+    const expression = parseExpression();
+    return {
+      type: "printStatement",
+      expression,
+    };
+  };
 
   const parseVariableDeclaration = (): VariableDeclarationNode => {
     eat("let");
 
-    const name = expectIdentifier();
+    if (!current || current.type !== "identifier") {
+      throw new ParserError("Expected variable name", current);
+    }
+
+    const name = current.value;
+    eat();
+
+    if (!current || current.value !== "=") {
+      throw new ParserError("Expected '='", current);
+    }
 
     eat("=");
 
@@ -132,35 +141,79 @@ export const parse: Parser = (tokens) => {
     };
   };
 
+  const parseAssignmentStatement = (): AssignmentStatementNode => {
+    if (!current || current.type !== "identifier") {
+      throw new ParserError("Expected identifier", current);
+    }
+
+    const name = current.value;
+    eat();
+
+    if (!current || current.value !== "=") {
+      throw new ParserError("Expected '='", current);
+    }
+
+    eat("=");
+
+    const value = parseExpression();
+
+    return {
+      type: "assignmentStatement",
+      name,
+      value,
+    };
+  };
+
+  const parseBlockStatement = (): BlockStatementNode => {
+    eat("{");
+
+    const body: StatementNode[] = [];
+
+    while (current && current.value !== "}") {
+      body.push(parseStatement());
+    }
+
+    if (!current) {
+      throw new ParserError("Expected '}'");
+    }
+
+    eat("}");
+
+    return {
+      type: "blockStatement",
+      body,
+    };
+  };
+
   const parseStatement = (): StatementNode => {
-    if (!current || current.type !== "keyword") {
-      throw new ParserError("Statement must start with keyword", current!);
+    if (!current) {
+      throw new ParserError("Unexpected end of input");
     }
 
-    switch (current.value) {
-      case "print": {
-        eat("print");
-
-        const expression = parseExpression();
-
-        const stmt: PrintStatementNode = {
-          type: "printStatement",
-          expression,
-        };
-
-        return stmt;
-      }
-
-      case "let": {
-        return parseVariableDeclaration();
-      }
-
-      default:
-        throw new ParserError(
-          `Unknown keyword ${current.value}`,
-          current
-        );
+    // block
+    if (current.type === "parens" && current.value === "{") {
+      return parseBlockStatement();
     }
+
+    // keyword-based
+    if (current.type === "keyword") {
+      switch (current.value) {
+        case "print":
+          return parsePrintStatement();
+        case "let":
+          return parseVariableDeclaration();
+      }
+    }
+
+    // assignment
+    if (current.type === "identifier") {
+      return parseAssignmentStatement();
+    }
+
+    throw new ParserError(
+      `Unexpected token '${current.value}'`,
+      current
+    );
   };
 
   /* ---------- PROGRAM ---------- */

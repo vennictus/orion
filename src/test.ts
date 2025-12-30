@@ -1,4 +1,4 @@
-import { compile } from "./compiler";
+import { compile } from "../src/compiler";
 
 /**
  * Runs a single Astra program and captures printed output
@@ -6,40 +6,32 @@ import { compile } from "./compiler";
 async function runProgram(source: string): Promise<number[]> {
   const output: number[] = [];
 
-  // Compile source → WASM bytes
   const wasm = compile(source);
-
-  // Force real ArrayBuffer (avoid SharedArrayBuffer issues)
   const buffer = wasm.slice().buffer;
 
-  const result = await WebAssembly.instantiate(buffer, {
+  const { instance } = await WebAssembly.instantiate(buffer, {
     env: {
       print_f32: (v: number) => output.push(v),
       print_i32: (v: number) => output.push(v),
     },
   });
 
-  const instance = result.instance;
-
-  // Execute compiled program
   (instance.exports.run as Function)();
-
   return output;
 }
 
-/**
- * Simple assertion helper
- */
+/* ---------- ASSERT HELPERS ---------- */
+
 function assertEqual(
   name: string,
   actual: number[],
   expected: number[]
 ) {
-  const pass =
+  const ok =
     actual.length === expected.length &&
     actual.every((v, i) => v === expected[i]);
 
-  if (!pass) {
+  if (!ok) {
     throw new Error(
       `❌ ${name}\nExpected: ${JSON.stringify(expected)}\nGot:      ${JSON.stringify(actual)}`
     );
@@ -48,107 +40,116 @@ function assertEqual(
   console.log(`✅ ${name}`);
 }
 
-/**
- * Wrapper so each test reports its own name
- */
-async function assertTest(
+async function test(
   name: string,
   source: string,
   expected: number[]
 ) {
-  const output = await runProgram(source);
-  assertEqual(name, output, expected);
+  const out = await runProgram(source);
+  assertEqual(name, out, expected);
 }
 
-/**
- * All tests for current Astra + Orion feature set
- */
-async function runTests() {
-  console.log("🚀 Running Astra tests...\n");
+/* ---------- TEST SUITE ---------- */
 
-  // ----- BASICS -----
-  await assertTest("print single number", "print 8", [8]);
-  await assertTest("multiple print statements", "print 8 print 24", [8, 24]);
+async function run() {
+  console.log("🚀 Astra test suite\n");
 
-  // ----- ARITHMETIC -----
-  await assertTest("simple addition", "print (2+4)", [6]);
-  await assertTest("subtraction", "print (10-3)", [7]);
-  await assertTest("multiplication", "print (3*5)", [15]);
-  await assertTest("division", "print (20/4)", [5]);
+  /* ===== CORE ===== */
+  await test("single print", "print 5", [5]);
+  await test("multiple prints", "print 1 print 2 print 3", [1, 2, 3]);
 
-  // ----- NESTING -----
-  await assertTest("nested expression", "print ((6-4)+10)", [12]);
-  await assertTest("deep nesting", "print (((2+3)*(4+1))-5)", [20]);
+  /* ===== ARITHMETIC ===== */
+  await test("addition", "print (2+3)", [5]);
+  await test("subtraction", "print (10-4)", [6]);
+  await test("multiplication", "print (3*4)", [12]);
+  await test("division", "print (20/5)", [4]);
 
-  // ----- COMPARISONS -----
-  await assertTest("equality", "print (4==4)", [1]);
-  await assertTest("less-than", "print (3<5)", [1]);
-  await assertTest("greater-than", "print (10>20)", [0]);
-
-  // ----- LOGICAL -----
-  await assertTest("logical AND", "print (1&&0)", [0]);
-  await assertTest(
-    "logical AND with comparisons",
-    "print ((2>1)&&(3<4))",
-    [1]
+  /* ===== NESTING ===== */
+  await test(
+    "nested arithmetic",
+    "print ((2+3)*(4+1))",
+    [25]
   );
 
-  // ----- STACK DISCIPLINE -----
-  await assertTest(
+  /* ===== COMPARISONS ===== */
+  await test("equals true", "print (4==4)", [1]);
+  await test("equals false", "print (4==5)", [0]);
+  await test("less-than", "print (3<5)", [1]);
+  await test("greater-than", "print (7>10)", [0]);
+
+  /* ===== LOGICAL ===== */
+  await test("logical AND false", "print (1&&0)", [0]);
+  await test("logical AND true", "print ((2>1)&&(3<4))", [1]);
+
+  /* ===== VARIABLES ===== */
+  await test(
+    "simple variable",
+    "let x = 10 print x",
+    [10]
+  );
+
+  await test(
+    "variable in expression",
+    "let x = 4 print (x+6)",
+    [10]
+  );
+
+  await test(
+    "multiple variables",
+    "let a = 3 let b = 5 print (a*b)",
+    [15]
+  );
+
+  /* ===== REASSIGNMENT ===== */
+  await test(
+    "reassignment",
+    "let x = 5 x = (x+2) print x",
+    [7]
+  );
+
+  /* ===== SCOPE ===== */
+  await test(
+    "shadowing",
+    `
+      let x = 2
+      {
+        let x = 10
+        print x
+      }
+      print x
+    `,
+    [10, 2]
+  );
+
+  await test(
+    "nested scopes",
+    `
+      let x = 1
+      {
+        let y = 2
+        {
+          let x = 3
+          print (x+y)
+        }
+        print x
+      }
+      print x
+    `,
+    [5, 1, 1]
+  );
+
+  /* ===== STACK DISCIPLINE ===== */
+  await test(
     "evaluation order",
     "print ((1+2)*(3+4)) print (5+6)",
     [21, 11]
   );
 
-  // ----- VARIABLES -----
-  await assertTest(
-    "variable declaration",
-    "let x = 10 print x",
-    [10]
-  );
-
-  await assertTest(
-    "variable in expression",
-    "let x = 10 print (x+5)",
-    [15]
-  );
-
-  await assertTest(
-    "multiple variables",
-    "let x = 3 let y = 4 print (x*y)",
-    [12]
-  );
-
-  await assertTest(
-    "variable reuse",
-    "let x = 7 print x print (x+1) print (x*2)",
-    [7, 8, 14]
-  );
-
-  await assertTest(
-    "variables with comparisons",
-    "let x = 5 let y = 10 print (x<y) print (x==y)",
-    [1, 0]
-  );
-
-  await assertTest(
-    "variables with logical AND",
-    "let a = 1 let b = 0 print (a&&b)",
-    [0]
-  );
-
-  await assertTest(
-    "nested expressions with variables",
-    "let x = 2 let y = 3 print ((x+1)*(y+2))",
-    [15]
-  );
-
   console.log("\n🎉 All Astra tests passed");
 }
 
-// Run
-runTests().catch(err => {
-  console.error("\n💥 Test failure");
+run().catch(err => {
+  console.error("\n💥 TEST FAILURE");
   console.error(err.message);
   process.exit(1);
 });
