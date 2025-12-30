@@ -1,5 +1,3 @@
-// src/types/parser.ts
-
 import { Token } from "./tokenizer";
 
 export interface Parser {
@@ -10,29 +8,51 @@ export interface Parser {
 
 export type Program = StatementNode[];
 
+/* ---------- BASE NODE ---------- */
+
+export interface ProgramNode {
+  type: string;
+}
+
 /* ---------- STATEMENTS ---------- */
 
-export type StatementNode = PrintStatementNode;
+export type StatementNode =
+  | PrintStatementNode
+  | VariableDeclarationNode;
 
 /* ---------- EXPRESSIONS ---------- */
 
 export type ExpressionNode =
   | NumberLiteralNode
-  | BinaryExpressionNode;
+  | BinaryExpressionNode
+  | IdentifierNode;
 
-/* ---------- NODES ---------- */
+/* ---------- STATEMENT NODES ---------- */
 
-export interface PrintStatementNode {
+export interface PrintStatementNode extends ProgramNode {
   type: "printStatement";
   expression: ExpressionNode;
 }
 
-export interface NumberLiteralNode {
+export interface VariableDeclarationNode extends ProgramNode {
+  type: "variableDeclaration";
+  name: string;
+  initializer: ExpressionNode;
+}
+
+/* ---------- EXPRESSION NODES ---------- */
+
+export interface IdentifierNode extends ProgramNode {
+  type: "identifier";
+  name: string;
+}
+
+export interface NumberLiteralNode extends ProgramNode {
   type: "numberLiteral";
   value: number;
 }
 
-export interface BinaryExpressionNode {
+export interface BinaryExpressionNode extends ProgramNode {
   type: "binaryExpression";
   left: ExpressionNode;
   right: ExpressionNode;

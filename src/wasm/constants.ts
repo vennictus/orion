@@ -14,34 +14,35 @@ export enum ValType {
 }
 
 export enum Opcode {
-  // control
+  /* ---------- CONTROL ---------- */
   call = 0x10,
   end = 0x0b,
 
-  // constants
+  /* ---------- LOCALS ---------- */
+  get_local = 0x20,
+  set_local = 0x21,
+
+  /* ---------- CONSTANTS ---------- */
+  i32_const = 0x41,
   f32_const = 0x43,
 
-  // arithmetic (f32)
+  /* ---------- ARITHMETIC (f32) ---------- */
   f32_add = 0x92,
   f32_sub = 0x93,
   f32_mul = 0x94,
   f32_div = 0x95,
 
-  // comparisons (produce i32)
+  /* ---------- COMPARISONS (result i32) ---------- */
   f32_eq = 0x5b,
   f32_lt = 0x5d,
   f32_gt = 0x5e,
-  i32_const = 0x41,
 
-
-  // logical
+  /* ---------- LOGICAL ---------- */
   i32_and = 0x71,
 
-f32_convert_i32_s = 0xb2,
-
-
+  /* ---------- CONVERSIONS ---------- */
+  f32_convert_i32_s = 0xb2,
 }
-
 
 export enum ExportKind {
   func = 0x00,

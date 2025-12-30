@@ -3,8 +3,11 @@
 import { Token, Tokenizer, TokenType, Matcher } from "./types/tokenizer";
 
 // supported keywords & operators
-export const keywords = ["print"];
+export const keywords = ["print", "let"];
 export const operators = ["+", "-", "*", "/", "==", "<", ">", "&&"];
+
+// identifier regex
+const identifierRegex = "^[a-zA-Z_][a-zA-Z0-9_]*";
 
 /**
  * Escape operators for regex ( +, *, etc are special chars )
@@ -29,14 +32,12 @@ const regexMatcher =
 
 // ⚠️ ORDER MATTERS (highest priority first)
 const matchers: Matcher[] = [
+  regexMatcher("^[0-9]+(\\.[0-9]+)?", "number"),
+  regexMatcher(`^(${keywords.join("|")})\\b`, "keyword"),
+  regexMatcher(identifierRegex, "identifier"),
+  regexMatcher(`^(${operators.map(escapeRegEx).join("|")})`, "operator"),
+  regexMatcher("^[()=]{1}", "parens"),
   regexMatcher("^\\s+", "whitespace"),
-  regexMatcher(`^(${keywords.join("|")})`, "keyword"),
-  regexMatcher(
-    `^(${operators.map(escapeRegEx).join("|")})`,
-    "operator"
-  ),
-  regexMatcher("^[()]", "parens"),
-  regexMatcher("^[.0-9]+", "number"),
 ];
 
 export const tokenize: Tokenizer = (input) => {
