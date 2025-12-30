@@ -1,4 +1,5 @@
-// WASM section ids
+// src/wasm/constants.ts
+
 export enum Section {
   Type = 0x01,
   Import = 0x02,
@@ -7,26 +8,43 @@ export enum Section {
   Code = 0x0a,
 }
 
-// Value types
 export enum ValType {
   i32 = 0x7f,
   f32 = 0x7d,
 }
 
-// Opcodes
 export enum Opcode {
-  call = 0x10,       // NEW (needed for print)
-  get_local = 0x20,
-  f32_const = 0x43,  // NEW (needed for numberLiteral)
-  f32_add = 0x92,
+  // control
+  call = 0x10,
   end = 0x0b,
+
+  // constants
+  f32_const = 0x43,
+
+  // arithmetic (f32)
+  f32_add = 0x92,
+  f32_sub = 0x93,
+  f32_mul = 0x94,
+  f32_div = 0x95,
+
+  // comparisons (produce i32)
+  f32_eq = 0x5b,
+  f32_lt = 0x5d,
+  f32_gt = 0x5e,
+  i32_const = 0x41,
+
+
+  // logical
+  i32_and = 0x71,
+
+f32_convert_i32_s = 0xb2,
+
+
 }
 
-// Export kinds
+
 export enum ExportKind {
   func = 0x00,
 }
 
-// Function type marker
 export const FUNC_TYPE = 0x60;
-

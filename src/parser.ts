@@ -1,49 +1,112 @@
 // src/parser.ts
-import { Parser, Program, StatementNode, ExpressionNode } from "./types/parser";
+
 import { Token } from "./types/tokenizer";
+import {
+  Parser,
+  Program,
+  StatementNode,
+  ExpressionNode,
+  PrintStatementNode,
+  NumberLiteralNode,
+  BinaryExpressionNode,
+  Operator,
+} from "./types/parser";
+
+export class ParserError extends Error {
+  constructor(message: string, public token: Token) {
+    super(message);
+  }
+}
 
 export const parse: Parser = (tokens) => {
-  let index = 0;
-  let current = tokens[index];
+  const iterator = tokens[Symbol.iterator]();
+  let current = iterator.next().value as Token | undefined;
 
-  const eat = () => {
-    index++;
-    current = tokens[index];
+  const eat = (expectedValue?: string) => {
+    if (!current) return;
+
+    if (expectedValue && current.value !== expectedValue) {
+      throw new ParserError(
+        `Expected '${expectedValue}', got '${current.value}'`,
+        current
+      );
+    }
+    current = iterator.next().value;
   };
 
+  // ---- EXPRESSIONS ----
   const parseExpression = (): ExpressionNode => {
     if (!current) {
-      throw new Error("Unexpected end of input");
+      throw new ParserError("Unexpected end of input", tokens[tokens.length - 1]);
     }
 
-    if (current.type === "number") {
-      const node: ExpressionNode = {
-        type: "numberLiteral",
-        value: Number(current.value),
-      };
-      eat();
-      return node;
-    }
+    switch (current.type) {
+      case "number": {
+        const node: NumberLiteralNode = {
+          type: "numberLiteral",
+          value: Number(current.value),
+        };
+        eat();
+        return node;
+      }
 
-    throw new Error(`Unexpected token in expression: ${current.type}`);
+      case "parens": {
+        eat("("); // (
+        const left = parseExpression();
+
+        if (!current) {
+  throw new ParserError("Expected operator", current!);
+}
+
+const operator = current.value as Operator;
+eat();
+
+
+        const right = parseExpression();
+        eat(")"); // )
+
+        const node: BinaryExpressionNode = {
+          type: "binaryExpression",
+          operator,
+          left,
+          right,
+        };
+
+        return node;
+      }
+
+      default:
+        throw new ParserError(
+          `Unexpected token type ${current.type}`,
+          current
+        );
+    }
   };
 
+  // ---- STATEMENTS ----
   const parseStatement = (): StatementNode => {
-    if (!current) {
-      throw new Error("Unexpected end of input");
+    if (!current || current.type !== "keyword") {
+      throw new ParserError("Statement must start with keyword", current!);
     }
 
-    if (current.type === "keyword" && current.value === "print") {
-      eat(); // consume 'print'
-      return {
-        type: "printStatement",
-        expression: parseExpression(),
-      };
-    }
+    switch (current.value) {
+      case "print": {
+        eat("print");
+        const expression = parseExpression();
 
-    throw new Error(`Unexpected token: ${current.value}`);
+        const stmt: PrintStatementNode = {
+          type: "printStatement",
+          expression,
+        };
+        return stmt;
+      }
+
+      default:
+        throw new ParserError(`Unknown keyword ${current.value}`, current);
+    }
   };
 
+  // ---- PROGRAM ----
   const program: Program = [];
 
   while (current) {

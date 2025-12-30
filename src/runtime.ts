@@ -9,11 +9,13 @@ export const runtime: Runtime = async (src, environment) => {
 
   const module = await WebAssembly.compile(buffer);
 
-  const instance = await WebAssembly.instantiate(module, {
-    env: {
-      print: environment.print,
-    },
-  });
+const instance = await WebAssembly.instantiate(module, {
+  env: {
+    print_f32: environment.print,
+    print_i32: environment.print,
+  },
+});
+
 
   return () => {
     (instance.exports.run as Function)();

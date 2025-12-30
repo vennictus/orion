@@ -1,7 +1,16 @@
 // src/tokenizer.ts
+
 import { Token, Tokenizer, TokenType, Matcher } from "./types/tokenizer";
 
+// supported keywords & operators
 export const keywords = ["print"];
+export const operators = ["+", "-", "*", "/", "==", "<", ">", "&&"];
+
+/**
+ * Escape operators for regex ( +, *, etc are special chars )
+ */
+const escapeRegEx = (text: string) =>
+  text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
 /**
  * Returns a token if regex matches at the current index
@@ -18,11 +27,16 @@ const regexMatcher =
     );
   };
 
-// Matchers in precedence order
+// ⚠️ ORDER MATTERS (highest priority first)
 const matchers: Matcher[] = [
-  regexMatcher(`^(${keywords.join("|")})`, "keyword"),
-  regexMatcher("^[.0-9]+", "number"),
   regexMatcher("^\\s+", "whitespace"),
+  regexMatcher(`^(${keywords.join("|")})`, "keyword"),
+  regexMatcher(
+    `^(${operators.map(escapeRegEx).join("|")})`,
+    "operator"
+  ),
+  regexMatcher("^[()]", "parens"),
+  regexMatcher("^[.0-9]+", "number"),
 ];
 
 export const tokenize: Tokenizer = (input) => {

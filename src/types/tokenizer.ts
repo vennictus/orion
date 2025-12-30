@@ -1,9 +1,13 @@
 // src/types/tokenizer.ts
 
+// after
 export type TokenType =
-  | "keyword"
   | "number"
-  | "whitespace";
+  | "keyword"
+  | "whitespace"
+  | "parens"
+  | "operator";
+
 
 export interface Token {
   type: TokenType;

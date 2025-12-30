@@ -6,16 +6,22 @@ export interface Parser {
   (tokens: Token[]): Program;
 }
 
-// Root
+/* ---------- ROOT ---------- */
+
 export type Program = StatementNode[];
 
-// Statements
+/* ---------- STATEMENTS ---------- */
+
 export type StatementNode = PrintStatementNode;
 
-// Expressions
-export type ExpressionNode = NumberLiteralNode;
+/* ---------- EXPRESSIONS ---------- */
 
-// Nodes
+export type ExpressionNode =
+  | NumberLiteralNode
+  | BinaryExpressionNode;
+
+/* ---------- NODES ---------- */
+
 export interface PrintStatementNode {
   type: "printStatement";
   expression: ExpressionNode;
@@ -25,3 +31,22 @@ export interface NumberLiteralNode {
   type: "numberLiteral";
   value: number;
 }
+
+export interface BinaryExpressionNode {
+  type: "binaryExpression";
+  left: ExpressionNode;
+  right: ExpressionNode;
+  operator: Operator;
+}
+
+/* ---------- OPERATORS ---------- */
+
+export type Operator =
+  | "+"
+  | "-"
+  | "*"
+  | "/"
+  | "=="
+  | "<"
+  | ">"
+  | "&&";
