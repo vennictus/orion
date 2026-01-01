@@ -14,7 +14,7 @@ export interface Runtime {
 export interface TickFunction {
   (): void;
 
-  // 👇 ADDITIVE (nothing removed)
+  
   renderToCanvas?: (canvas: HTMLCanvasElement) => void;
 }
 

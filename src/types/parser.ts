@@ -27,8 +27,7 @@ export type StatementNode =
   | WhileStatementNode
   | BreakStatementNode
   | ContinueStatementNode
-  | SetPixelStatementNode; // ✅ ADDITION
-
+  | SetPixelStatementNode; // 
 /* ---------- EXPRESSIONS ---------- */
 
 export type ExpressionNode =

@@ -7,12 +7,9 @@ import {
   StatementNode,
   ExpressionNode,
   PrintStatementNode,
-  NumberLiteralNode,
-  BinaryExpressionNode,
   VariableDeclarationNode,
   AssignmentStatementNode,
   BlockStatementNode,
-  IdentifierNode,
   Operator,
   BreakStatementNode,
   ContinueStatementNode,
@@ -306,9 +303,7 @@ export const parse: Parser = (tokens) => {
     };
   };
 
-  /* =====================================================
-     ADDITION 1️⃣ : SETPIXEL STATEMENT (NEW, NO REMOVALS)
-     ===================================================== */
+  //Added setpixel statement parser
 
   const parseSetPixelStatement = (): StatementNode => {
     eat("setpixel");
@@ -353,9 +348,7 @@ export const parse: Parser = (tokens) => {
         case "continue":
           return parseContinueStatement();
 
-        /* ===============================
-           ADDITION 2️⃣ : SETPIXEL CASE
-           =============================== */
+        //Added setpixel case
         case "setpixel":
           return parseSetPixelStatement();
       }

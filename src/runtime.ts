@@ -91,7 +91,7 @@ export const runtime: Runtime = async (src, environment) => {
     (instance.exports.run as Function)();
   };
 
-  // 👇 attach renderer without breaking call signature
+  // attach renderer without breaking call signature
   tick.renderToCanvas = renderToCanvas;
 
   return tick;

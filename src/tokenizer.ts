@@ -5,8 +5,6 @@ import { Token, Tokenizer, TokenType, Matcher } from "./types/tokenizer";
 /* ---------- LANGUAGE DEFINITIONS ---------- */
 
 // supported keywords
-// src/tokenizer.ts
-
 export const keywords = [
   "print",
   "let",
@@ -16,7 +14,7 @@ export const keywords = [
   "while",
   "break",
   "continue",
-  "setpixel", // 👈 add this
+  "setpixel", 
 ];
 
 
@@ -50,7 +48,7 @@ const regexMatcher =
   };
 
 /* ---------- MATCHERS ---------- */
-/* ⚠️ ORDER MATTERS (highest priority first) */
+/* ORDER MATTERS (highest priority first) */
 
 const matchers: Matcher[] = [
   regexMatcher("^[0-9]+(\\.[0-9]+)?", "number"),
