@@ -258,6 +258,131 @@ async function run() {
     [0, 1, 1, 2]
   );
 
+  
+
+  await test(
+    "break exits loop immediately",
+    `
+      let x = 0
+      while (1)
+        print x
+        break
+        print 999
+      end
+      print 42
+    `,
+    [0, 42]
+  );
+
+  await test(
+    "continue skips rest of iteration",
+    `
+      let x = 0
+      while (x < 3)
+        x = (x + 1)
+        continue
+        print 999
+      end
+      print x
+    `,
+    [3]
+  );
+
+  await test(
+    "break inside conditional",
+    `
+      let x = 0
+      while (x < 5)
+        if (x == 2)
+          break
+        end
+        print x
+        x = (x + 1)
+      end
+    `,
+    [0, 1]
+  );
+
+  await test(
+    "continue inside conditional",
+    `
+      let x = 0
+      while (x < 5)
+        x = (x + 1)
+        if (x == 3)
+          continue
+        end
+        print x
+      end
+    `,
+    [1, 2, 4, 5]
+  );
+
+  await test(
+    "nested loop break only exits inner loop",
+    `
+      let i = 0
+      while (i < 2)
+        let j = 0
+        while (j < 5)
+          print (i + j)
+          break
+        end
+        i = (i + 1)
+      end
+    `,
+    [0, 1]
+  );
+
+  await test(
+    "nested loop continue only affects inner loop",
+    `
+      let i = 0
+      while (i < 2)
+        let j = 0
+        while (j < 3)
+          j = (j + 1)
+          if (j == 2)
+            continue
+          end
+          print (i + j)
+        end
+        i = (i + 1)
+      end
+    `,
+    [1, 3, 2, 4]
+  );
+
+  await test(
+    "break in nested loop does not kill outer loop",
+    `
+      let i = 0
+      while (i < 3)
+        let j = 0
+        while (1)
+          print i
+          break
+        end
+        i = (i + 1)
+      end
+    `,
+    [0, 1, 2]
+  );
+
+  await test(
+    "continue at top of loop",
+    `
+      let x = 0
+      while (x < 3)
+        x = (x + 1)
+        continue
+      end
+      print x
+    `,
+    [3]
+  );
+
+
   console.log("\n🎉 All Astra tests passed");
 }
 

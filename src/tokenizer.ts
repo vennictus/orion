@@ -2,7 +2,9 @@
 
 import { Token, Tokenizer, TokenType, Matcher } from "./types/tokenizer";
 
-// supported keywords & operators
+/* ---------- LANGUAGE DEFINITIONS ---------- */
+
+// supported keywords
 export const keywords = [
   "print",
   "let",
@@ -10,12 +12,17 @@ export const keywords = [
   "else",
   "end",
   "while",
+  "break",
+  "continue",
 ];
 
+// supported operators
 export const operators = ["+", "-", "*", "/", "==", "<", ">", "&&"];
 
 // identifiers: variable names
 const identifierRegex = "^[a-zA-Z_][a-zA-Z0-9_]*";
+
+/* ---------- HELPERS ---------- */
 
 /**
  * Escape operators for regex ( +, *, etc are special chars )
@@ -38,18 +45,25 @@ const regexMatcher =
     );
   };
 
-// ⚠️ ORDER MATTERS (highest priority first)
+/* ---------- MATCHERS ---------- */
+/* ⚠️ ORDER MATTERS (highest priority first) */
+
 const matchers: Matcher[] = [
-  regexMatcher("^[.0-9]+", "number"),
+  regexMatcher("^[0-9]+(\\.[0-9]+)?", "number"),
+
   regexMatcher(`^(${keywords.join("|")})`, "keyword"),
+
   regexMatcher(identifierRegex, "identifier"),
+
   regexMatcher(`^(${operators.map(escapeRegEx).join("|")})`, "operator"),
 
-  // ✅ grouping tokens: ( ) { } =
+  // grouping tokens: ( ) { } =
   regexMatcher("^[(){}=]", "parens"),
 
   regexMatcher("^\\s+", "whitespace"),
 ];
+
+/* ---------- TOKENIZER ---------- */
 
 export const tokenize: Tokenizer = (input) => {
   const tokens: Token[] = [];

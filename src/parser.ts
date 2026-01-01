@@ -14,7 +14,10 @@ import {
   BlockStatementNode,
   IdentifierNode,
   Operator,
+  BreakStatementNode,
+  ContinueStatementNode,
 } from "./types/parser";
+
 
 export class ParserError extends Error {
   constructor(message: string, public token?: Token) {
@@ -177,6 +180,23 @@ export const parse: Parser = (tokens) => {
     };
   };
 
+  const parseBreakStatement = (): BreakStatementNode => {
+  eat("break");
+
+  return {
+    type: "breakStatement",
+  };
+};
+
+const parseContinueStatement = (): ContinueStatementNode => {
+  eat("continue");
+
+  return {
+    type: "continueStatement",
+  };
+};
+
+
   const parseBlockStatement = (): BlockStatementNode => {
     eat("{");
 
@@ -265,19 +285,23 @@ const parseStatement = (): StatementNode => {
   }
 
   // keyword-based
-  if (current.type === "keyword") {
-    switch (current.value) {
-      case "print":
-        return parsePrintStatement();
-      case "let":
-        return parseVariableDeclaration();
-      case "if":
-        return parseIfStatement();
-        case "while":
-  return parseWhileStatement();
-
-    }
+ if (current.type === "keyword") {
+  switch (current.value) {
+    case "print":
+      return parsePrintStatement();
+    case "let":
+      return parseVariableDeclaration();
+    case "if":
+      return parseIfStatement();
+    case "while":
+      return parseWhileStatement();
+    case "break":
+      return parseBreakStatement();
+    case "continue":
+      return parseContinueStatement();
   }
+}
+
 
   // assignment
   if (current.type === "identifier") {

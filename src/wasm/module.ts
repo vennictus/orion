@@ -31,6 +31,9 @@ function createSection(section: Section, payload: number[]): number[] {
 
 type ValueType = "f32" | "i32";
 
+let controlDepth = 0;
+
+
 /* ---------- OPCODE MAP ---------- */
 
 const binaryOpcode: Record<string, { opcode: Opcode; result: ValueType }> = {
@@ -75,6 +78,19 @@ function resolveSymbol(name: string): number {
   }
   throw new Error(`Undefined variable '${name}'`);
 }
+
+/* ---------- LOOP STACK (ADDED) ---------- */
+
+/* ---------- LOOP STACK ---------- */
+
+type LoopContext = {
+  blockDepth: number; // absolute control depth of the surrounding block
+  loopDepth: number;  // absolute control depth of the loop
+};
+
+const loopStack: LoopContext[] = [];
+ 
+
 
 /* ---------- EXPRESSION EMITTER ---------- */
 
@@ -141,9 +157,9 @@ function emitExpression(node: any, code: number[]): ValueType {
 }
 
 /* ---------- STATEMENT EMITTER ---------- */
-
-function emitStatement(stmt: any, code: number[]) {
+ function emitStatement(stmt: any, code: number[]) {
   switch (stmt.type) {
+
     case "printStatement": {
       const type = emitExpression(stmt.expression, code);
       code.push(Opcode.call);
@@ -190,9 +206,11 @@ function emitStatement(stmt: any, code: number[]) {
     case "ifStatement": {
       code.push(Opcode.block);
       code.push(0x40);
+      controlDepth++;
 
       code.push(Opcode.block);
       code.push(0x40);
+      controlDepth++;
 
       const condType = emitExpression(stmt.condition, code);
       if (condType !== "i32") {
@@ -200,7 +218,6 @@ function emitStatement(stmt: any, code: number[]) {
       }
 
       code.push(Opcode.i32_eqz);
-
       code.push(Opcode.br_if);
       code.push(...signedLEB128(0));
 
@@ -214,6 +231,7 @@ function emitStatement(stmt: any, code: number[]) {
       code.push(...signedLEB128(1));
 
       code.push(Opcode.end);
+      controlDepth--;
 
       if (stmt.elseBlock) {
         enterScope();
@@ -224,79 +242,108 @@ function emitStatement(stmt: any, code: number[]) {
       }
 
       code.push(Opcode.end);
+      controlDepth--;
       break;
     }
 
-/* ---------- WHILE STATEMENT ---------- */
-case "whileStatement": {
+    /* ---------- WHILE STATEMENT ---------- */
+    case "whileStatement": {
 
-  // 🔥 SPECIAL CASE: empty body → single condition check
-  if (stmt.body.length === 0) {
+      /* --- EMPTY BODY --- */
+      if (stmt.body.length === 0) {
+        code.push(Opcode.block);
+        code.push(0x40);
+        controlDepth++;
 
-    // block to safely consume condition
-    code.push(Opcode.block);
-    code.push(0x40);
+        const condType = emitExpression(stmt.condition, code);
+        if (condType !== "i32") {
+          throw new Error("while condition must be i32");
+        }
 
-    const condType = emitExpression(stmt.condition, code);
-    if (condType !== "i32") {
-      throw new Error("while condition must be i32");
+        code.push(Opcode.i32_eqz);
+        code.push(Opcode.br_if);
+        code.push(...signedLEB128(0));
+
+        code.push(Opcode.end);
+        controlDepth--;
+        break;
+      }
+
+      /* --- NORMAL LOOP --- */
+
+      // block (break target)
+      code.push(Opcode.block);
+      code.push(0x40);
+      controlDepth++;
+
+      // loop (continue target)
+      code.push(Opcode.loop);
+      code.push(0x40);
+      controlDepth++;
+
+      // store absolute depths
+      loopStack.push({
+        blockDepth: controlDepth - 1,
+        loopDepth: controlDepth - 0,
+      });
+
+      const condType = emitExpression(stmt.condition, code);
+      if (condType !== "i32") {
+        throw new Error("while condition must be i32");
+      }
+
+      code.push(Opcode.i32_eqz);
+      code.push(Opcode.br_if);
+      code.push(...signedLEB128(1));
+
+      enterScope();
+      for (const inner of stmt.body) {
+        emitStatement(inner, code);
+      }
+      exitScope();
+
+      code.push(Opcode.br);
+      code.push(...signedLEB128(0));
+
+      loopStack.pop();
+
+      code.push(Opcode.end);
+      controlDepth--;
+
+      code.push(Opcode.end);
+      controlDepth--;
+      break;
     }
 
-    // negate condition
-    code.push(Opcode.i32_eqz);
+    /* ---------- BREAK ---------- */
+    case "breakStatement": {
+      if (loopStack.length === 0) {
+        throw new Error("break used outside of loop");
+      }
 
-    // exit block immediately
-    code.push(Opcode.br_if);
-    code.push(...signedLEB128(0));
+      const ctx = loopStack[loopStack.length - 1];
+      code.push(Opcode.br);
+      code.push(...signedLEB128(controlDepth - ctx.blockDepth));
+      break;
+    }
 
-    // end block
-    code.push(Opcode.end);
+    /* ---------- CONTINUE ---------- */
+    case "continueStatement": {
+      if (loopStack.length === 0) {
+        throw new Error("continue used outside of loop");
+      }
 
-    break;
-  }
+      const ctx = loopStack[loopStack.length - 1];
+      code.push(Opcode.br);
+      code.push(...signedLEB128(controlDepth - ctx.loopDepth));
+      break;
+    }
 
-  // ===============================
-  // NORMAL WHILE LOOP (UNCHANGED)
-  // ===============================
-
-  // outer block (exit target)
-  code.push(Opcode.block);
-  code.push(0x40);
-
-  // inner loop (repeat target)
-  code.push(Opcode.loop);
-  code.push(0x40);
-
-  const condType = emitExpression(stmt.condition, code);
-  if (condType !== "i32") {
-    throw new Error("while condition must be i32");
-  }
-
-  code.push(Opcode.i32_eqz);
-
-  // if false → break out of block
-  code.push(Opcode.br_if);
-  code.push(...signedLEB128(1));
-
-  // --- loop body ---
-  enterScope();
-  for (const inner of stmt.body) {
-    emitStatement(inner, code);
-  }
-  exitScope();
-
-  // jump back to loop start
-  code.push(Opcode.br);
-  code.push(...signedLEB128(0));
-
-  code.push(Opcode.end); // loop
-  code.push(Opcode.end); // block
-
-  break;
-}
-
+    default:
+      throw new Error(`Unknown statement ${stmt.type}`);
   }
 }
+
 /* ---------- EMITTER ---------- */
 
 export function emitter(ast: Program): Uint8Array {

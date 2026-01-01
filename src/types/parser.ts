@@ -24,7 +24,9 @@ export type StatementNode =
   | AssignmentStatementNode
   | BlockStatementNode
   | IfStatementNode
-  | WhileStatementNode;
+  | WhileStatementNode
+  | BreakStatementNode
+  | ContinueStatementNode;
 
 /* ---------- EXPRESSIONS ---------- */
 
@@ -57,6 +59,27 @@ export interface BlockStatementNode extends ProgramNode {
   body: StatementNode[];
 }
 
+export interface IfStatementNode extends ProgramNode {
+  type: "ifStatement";
+  condition: ExpressionNode;
+  thenBlock: StatementNode[];
+  elseBlock?: StatementNode[];
+}
+
+export interface WhileStatementNode extends ProgramNode {
+  type: "whileStatement";
+  condition: ExpressionNode;
+  body: StatementNode[];
+}
+
+export interface BreakStatementNode extends ProgramNode {
+  type: "breakStatement";
+}
+
+export interface ContinueStatementNode extends ProgramNode {
+  type: "continueStatement";
+}
+
 /* ---------- EXPRESSION NODES ---------- */
 
 export interface IdentifierNode extends ProgramNode {
@@ -87,19 +110,3 @@ export type Operator =
   | "<"
   | ">"
   | "&&";
-
-
-
-export interface IfStatementNode extends ProgramNode {
-  type: "ifStatement";
-  condition: ExpressionNode;
-  thenBlock: StatementNode[];
-  elseBlock?: StatementNode[];
-}
-
-export interface WhileStatementNode extends ProgramNode {
-  type: "whileStatement";
-  condition: ExpressionNode;
-  body: StatementNode[];
-}
-
