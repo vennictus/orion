@@ -5,6 +5,8 @@ import { Token, Tokenizer, TokenType, Matcher } from "./types/tokenizer";
 /* ---------- LANGUAGE DEFINITIONS ---------- */
 
 // supported keywords
+// src/tokenizer.ts
+
 export const keywords = [
   "print",
   "let",
@@ -14,7 +16,9 @@ export const keywords = [
   "while",
   "break",
   "continue",
+  "setpixel", // 👈 add this
 ];
+
 
 // supported operators
 export const operators = ["+", "-", "*", "/", "==", "<", ">", "&&"];

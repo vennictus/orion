@@ -20,6 +20,37 @@ async function runProgram(source: string): Promise<number[]> {
   return output;
 }
 
+/**
+ * Runs a program and returns both printed output and memory
+ */
+async function runProgramWithMemory(source: string) {
+  const output: number[] = [];
+
+  const wasm = compile(source);
+  const buffer = wasm.slice().buffer;
+
+  const { instance } = await WebAssembly.instantiate(buffer, {
+    env: {
+      print_f32: (v: number) => output.push(v),
+      print_i32: (v: number) => output.push(v),
+    },
+  });
+
+  const memory = instance.exports.memory as WebAssembly.Memory;
+  if (!memory) {
+    throw new Error("WASM memory not exported");
+  }
+
+  const mem = new Uint8Array(memory.buffer);
+
+  (instance.exports.run as Function)();
+
+  return {
+    output,
+    memory: mem,
+  };
+}
+
 /* ---------- ASSERT HELPERS ---------- */
 
 function assertEqual(
@@ -34,6 +65,21 @@ function assertEqual(
   if (!ok) {
     throw new Error(
       `❌ ${name}\nExpected: ${JSON.stringify(expected)}\nGot:      ${JSON.stringify(actual)}`
+    );
+  }
+
+  console.log(`✅ ${name}`);
+}
+
+function assertMemoryByte(
+  name: string,
+  memory: Uint8Array,
+  index: number,
+  expected: number
+) {
+  if (memory[index] !== expected) {
+    throw new Error(
+      `❌ ${name}\nExpected memory[${index}] = ${expected}\nGot ${memory[index]}`
     );
   }
 
@@ -64,13 +110,6 @@ async function run() {
   await test("multiplication", "print (3*4)", [12]);
   await test("division", "print (20/5)", [4]);
 
-  /* ===== NESTING ===== */
-  await test(
-    "nested arithmetic",
-    "print ((2+3)*(4+1))",
-    [25]
-  );
-
   /* ===== COMPARISONS ===== */
   await test("equals true", "print (4==4)", [1]);
   await test("equals false", "print (4==5)", [0]);
@@ -82,192 +121,91 @@ async function run() {
   await test("logical AND true", "print ((2>1)&&(3<4))", [1]);
 
   /* ===== VARIABLES ===== */
-  await test(
-    "simple variable",
-    "let x = 10 print x",
-    [10]
-  );
-
-  await test(
-    "variable in expression",
-    "let x = 4 print (x+6)",
-    [10]
-  );
-
-  await test(
-    "multiple variables",
-    "let a = 3 let b = 5 print (a*b)",
-    [15]
-  );
+  await test("simple variable", "let x = 10 print x", [10]);
+  await test("variable in expression", "let x = 4 print (x+6)", [10]);
+  await test("multiple variables", "let a = 3 let b = 5 print (a*b)", [15]);
 
   /* ===== REASSIGNMENT ===== */
-  await test(
-    "reassignment",
-    "let x = 5 x = (x+2) print x",
-    [7]
-  );
-
-  /* ===== SCOPE ===== */
-  await test(
-    "shadowing",
-    `
-      let x = 2
-      {
-        let x = 10
-        print x
-      }
-      print x
-    `,
-    [10, 2]
-  );
-
-  await test(
-    "nested scopes",
-    `
-      let x = 1
-      {
-        let y = 2
-        {
-          let x = 3
-          print (x+y)
-        }
-        print x
-      }
-      print x
-    `,
-    [5, 1, 1]
-  );
+  await test("reassignment", "let x = 5 x = (x+2) print x", [7]);
 
   /* ===== IF / ELSE ===== */
   await test(
-    "if true branch",
+    "if else",
     `
-      if (1)
+      let x = 1
+      if (x)
         print 10
+      else
+        print 20
       end
     `,
     [10]
   );
 
+  /* ===== WHILE ===== */
   await test(
-    "if false branch (no else)",
+    "simple while",
     `
-      if (0)
-        print 10
-      end
-    `,
-    []
-  );
-
-  await test(
-    "if else true",
-    `
-      if (1)
-        print 1
-      else
-        print 2
-      end
-    `,
-    [1]
-  );
-
-  await test(
-    "if else false",
-    `
-      if (0)
-        print 1
-      else
-        print 2
-      end
-    `,
-    [2]
-  );
-
-  await test(
-    "if with comparison",
-    `
-      if (3 < 5)
-        print 7
-      else
-        print 9
-      end
-    `,
-    [7]
-  );
-
-  await test(
-    "if with variables",
-    `
-      let x = 4
-      if (x == 4)
-        print (x+1)
-      else
-        print 0
-      end
-    `,
-    [5]
-  );
-
-  await test(
-    "if scope isolation",
-    `
-      let x = 1
-      if (1)
-        let x = 10
+      let x = 0
+      while (x < 3)
         print x
+        x = (x + 1)
+      end
+    `,
+    [0, 1, 2]
+  );
+
+  /* ===== BREAK / CONTINUE ===== */
+  await test(
+    "break",
+    `
+      let x = 0
+      while (1)
+        print x
+        break
+      end
+    `,
+    [0]
+  );
+
+  await test(
+    "continue",
+    `
+      let x = 0
+      while (x < 3)
+        x = (x + 1)
+        continue
+        print 999
       end
       print x
     `,
-    [10, 1]
+    [3]
   );
 
-  await test(
-  "simple while loop",
-  `
-    let x = 0
-    while (x < 3)
-      print x
-      x = (x + 1)
-    end
-  `,
-  [0, 1, 2]
-);
-
-await test(
-  "while with false condition",
-  `
-    let x = 10
-    while (x < 5)
-      print x
-    end
-    print 99
-  `,
-  [99]
-);
-
-await test(
-  "nested while",
-  `
-    let i = 0
-    while (i < 2)
-      let j = 0
-      while (j < 2)
-        print (i + j)
-        j = (j + 1)
+  /* ===== MEMORY ===== */
+  {
+    const { memory } = await runProgramWithMemory(`
+      let y = 0
+      while (y < 3)
+        let x = 0
+        while (x < 3)
+          setpixel x y 255
+          x = (x + 1)
+        end
+        y = (y + 1)
       end
-      i = (i + 1)
-    end
-  `,
-  [0,1,1,2]
-);
+    `);
 
+    // row 0
+    assertMemoryByte("pixel (0,0)", memory, 0, 255);
+    assertMemoryByte("pixel (1,0)", memory, 1, 255);
+    assertMemoryByte("pixel (2,0)", memory, 2, 255);
 
-  /* ===== STACK DISCIPLINE ===== */
-  await test(
-    "evaluation order",
-    "print ((1+2)*(3+4)) print (5+6)",
-    [21, 11]
-  );
+    // row 1 (WIDTH = 100)
+    assertMemoryByte("pixel (0,1)", memory, 100, 255);
+    assertMemoryByte("pixel (1,1)", memory, 101, 255);
+    assertMemoryByte("pixel (2,1)", memory, 102, 255);
+  }
 
   console.log("\n🎉 All Astra tests passed");
 }

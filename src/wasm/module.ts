@@ -79,7 +79,7 @@ function resolveSymbol(name: string): number {
   throw new Error(`Undefined variable '${name}'`);
 }
 
-/* ---------- LOOP STACK (ADDED) ---------- */
+
 
 /* ---------- LOOP STACK ---------- */
 
@@ -213,9 +213,17 @@ function emitExpression(node: any, code: number[]): ValueType {
       controlDepth++;
 
       const condType = emitExpression(stmt.condition, code);
-      if (condType !== "i32") {
-        throw new Error("if condition must be i32");
-      }
+
+if (condType === "f32") {
+  // f32 truthiness: x != 0.0
+  code.push(Opcode.f32_const);
+  code.push(...f32(0));
+  code.push(Opcode.f32_eq); // x == 0 → i32
+  code.push(Opcode.i32_eqz); // invert → x != 0
+} else if (condType !== "i32") {
+  throw new Error("if condition must be i32 or f32");
+}
+
 
       code.push(Opcode.i32_eqz);
       code.push(Opcode.br_if);
@@ -338,6 +346,36 @@ function emitExpression(node: any, code: number[]): ValueType {
       code.push(...signedLEB128(controlDepth - ctx.loopDepth));
       break;
     }
+    case "setpixelStatement": {
+  const WIDTH = 100;
+
+  // x
+  const xType = emitExpression(stmt.x, code);
+  if (xType === "f32") code.push(Opcode.i32_trunc_f32_s);
+
+  // y
+  const yType = emitExpression(stmt.y, code);
+  if (yType === "f32") code.push(Opcode.i32_trunc_f32_s);
+
+  // y * WIDTH
+  code.push(Opcode.i32_const);
+  code.push(...signedLEB128(WIDTH));
+  code.push(Opcode.i32_mul);
+
+  // + x
+  code.push(Opcode.i32_add);
+
+  // value
+  const vType = emitExpression(stmt.value, code);
+  if (vType === "f32") code.push(Opcode.i32_trunc_f32_s);
+
+  // store byte
+  code.push(Opcode.i32_store8);
+  code.push(0x00); // align
+  code.push(0x00); // offset
+
+  break;
+}
 
     default:
       throw new Error(`Unknown statement ${stmt.type}`);
@@ -394,18 +432,28 @@ export function emitter(ast: Program): Uint8Array {
       ],
     ])
   );
+  const memorySection = createSection(
+  Section.Memory,
+  encodeVector([
+    [
+      0x00,                // flags: min only
+      ...unsignedLEB128(1) // initial = 1 page (64KB)
+    ],
+  ])
+);
 
   const funcSection = createSection(
     Section.Function,
     encodeVector([[...unsignedLEB128(0)]])
   );
 
-  const exportSection = createSection(
-    Section.Export,
-    encodeVector([
-      [...encodeString("run"), ExportKind.func, ...unsignedLEB128(2)],
-    ])
-  );
+const exportSection = createSection(
+  Section.Export,
+  encodeVector([
+    [...encodeString("run"), ExportKind.func, ...unsignedLEB128(2)],
+    [...encodeString("memory"), ExportKind.memory, ...unsignedLEB128(0)],
+  ])
+);
 
   const locals =
     localCount === 0
@@ -424,12 +472,15 @@ export function emitter(ast: Program): Uint8Array {
   );
 
   return Uint8Array.from([
-    ...MAGIC,
-    ...VERSION,
-    ...typeSection,
-    ...importSection,
-    ...funcSection,
-    ...exportSection,
-    ...codeSection,
-  ]);
+  ...MAGIC,
+  ...VERSION,
+  ...typeSection,
+  ...importSection,
+  ...funcSection,    //  Function FIRST
+  ...memorySection,  //  Memory AFTER Function
+  ...exportSection,
+  ...codeSection,
+]);
+
+
 }

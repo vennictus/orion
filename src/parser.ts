@@ -18,7 +18,6 @@ import {
   ContinueStatementNode,
 } from "./types/parser";
 
-
 export class ParserError extends Error {
   constructor(message: string, public token?: Token) {
     super(message);
@@ -113,7 +112,7 @@ export const parse: Parser = (tokens) => {
 
     while (
       current &&
-      !(current.type === "keyword" && terminators.includes(current.value))
+      !(current.type === "keyword" && terminators.includes(current.value as string))
     ) {
       body.push(parseStatement());
     }
@@ -181,21 +180,20 @@ export const parse: Parser = (tokens) => {
   };
 
   const parseBreakStatement = (): BreakStatementNode => {
-  eat("break");
+    eat("break");
 
-  return {
-    type: "breakStatement",
+    return {
+      type: "breakStatement",
+    };
   };
-};
 
-const parseContinueStatement = (): ContinueStatementNode => {
-  eat("continue");
+  const parseContinueStatement = (): ContinueStatementNode => {
+    eat("continue");
 
-  return {
-    type: "continueStatement",
+    return {
+      type: "continueStatement",
+    };
   };
-};
-
 
   const parseBlockStatement = (): BlockStatementNode => {
     eat("{");
@@ -218,143 +216,161 @@ const parseContinueStatement = (): ContinueStatementNode => {
     };
   };
 
-  /* ---------- IF STATEMENT (MOVED, NOT DELETED) ---------- */
-const parseIfStatement = (): any => {
-  eat("if");
+  /* ---------- IF STATEMENT (UNCHANGED) ---------- */
 
-  eat("(");
+  const parseIfStatement = (): any => {
+    eat("if");
 
-  const left = parseExpression();
+    eat("(");
 
-  let condition: ExpressionNode = left;
+    const left = parseExpression();
+    let condition: ExpressionNode = left;
 
-  // optional binary condition
-  const opToken = current;
-  if (opToken && opToken.type === "operator") {
-    const operator = opToken.value as Operator;
-    eat();
+    const opToken = current;
+    if (opToken && opToken.type === "operator") {
+      const operator = opToken.value as Operator;
+      eat();
 
-    const right = parseExpression();
+      const right = parseExpression();
 
-    condition = {
-      type: "binaryExpression",
-      left,
-      right,
-      operator,
+      condition = {
+        type: "binaryExpression",
+        left,
+        right,
+        operator,
+      };
+    }
+
+    if (!current || current.value !== ")") {
+      throw new ParserError("Expected ')'", current);
+    }
+
+    eat(")");
+
+    const thenBlock = parseStatementList(["else", "end"]);
+
+    let elseBlock: StatementNode[] | undefined;
+
+    if (current && (current.value as string) === "else") {
+      eat("else");
+      elseBlock = parseStatementList(["end"]);
+    }
+
+    eat("end");
+
+    return {
+      type: "ifStatement",
+      condition,
+      thenBlock,
+      elseBlock,
     };
-  }
-
-  // ---- CLOSE PAREN ----
-  const closeParen = current;
-  if (!closeParen || closeParen.value !== ")") {
-    throw new ParserError("Expected ')'", closeParen);
-  }
-
-  eat(")");
-
-  // ---- THEN BLOCK ----
-  const thenBlock = parseStatementList(["else", "end"]);
-
-  let elseBlock: StatementNode[] | undefined;
-
-  // ---- ELSE BLOCK ----
-  const next = current;
-  if (next && next.value === "else") {
-    eat("else");
-    elseBlock = parseStatementList(["end"]);
-  }
-
-  eat("end");
-
-  return {
-    type: "ifStatement",
-    condition,
-    thenBlock,
-    elseBlock,
   };
-};
 
-const parseStatement = (): StatementNode => {
-  if (!current) {
-    throw new ParserError("Unexpected end of input");
-  }
+  /* ---------- WHILE STATEMENT (UNCHANGED) ---------- */
 
-  // block
-  if (current.type === "parens" && current.value === "{") {
-    return parseBlockStatement();
-  }
+  const parseWhileStatement = (): any => {
+    eat("while");
 
-  // keyword-based
- if (current.type === "keyword") {
-  switch (current.value) {
-    case "print":
-      return parsePrintStatement();
-    case "let":
-      return parseVariableDeclaration();
-    case "if":
-      return parseIfStatement();
-    case "while":
-      return parseWhileStatement();
-    case "break":
-      return parseBreakStatement();
-    case "continue":
-      return parseContinueStatement();
-  }
-}
+    eat("(");
 
+    const left = parseExpression();
+    let condition: ExpressionNode = left;
 
-  // assignment
-  if (current.type === "identifier") {
-    return parseAssignmentStatement();
-  }
+    if (current && current.type === "operator") {
+      const operator = current.value as Operator;
+      eat();
+      const right = parseExpression();
 
-  throw new ParserError(
-    `Unexpected token '${current.value}'`,
-    current
-  );
-};
+      condition = {
+        type: "binaryExpression",
+        left,
+        right,
+        operator,
+      };
+    }
 
+    if (!current || current.value !== ")") {
+      throw new ParserError("Expected ')'", current);
+    }
 
+    eat(")");
 
-const parseWhileStatement = (): any => {
-  eat("while");
+    const body = parseStatementList(["end"]);
 
-eat("(");
+    eat("end");
 
-const left = parseExpression();
-let condition: ExpressionNode = left;
-
-if (current && current.type === "operator") {
-  const operator = current.value as Operator;
-  eat();
-  const right = parseExpression();
-
-  condition = {
-    type: "binaryExpression",
-    left,
-    right,
-    operator,
+    return {
+      type: "whileStatement",
+      condition,
+      body,
+    };
   };
-}
 
-if (!current || current.value !== ")") {
-  throw new ParserError("Expected ')'", current);
-}
+  /* =====================================================
+     ADDITION 1️⃣ : SETPIXEL STATEMENT (NEW, NO REMOVALS)
+     ===================================================== */
 
-eat(")");
+  const parseSetPixelStatement = (): StatementNode => {
+    eat("setpixel");
 
+    const x = parseExpression();
+    const y = parseExpression();
+    const value = parseExpression();
 
-  const body = parseStatementList(["end"]);
-
-  eat("end");
-
-  return {
-    type: "whileStatement",
-    condition,
-    body,
+    return {
+      type: "setpixelStatement",
+      x,
+      y,
+      value,
+    };
   };
-};
 
+  /* ---------- STATEMENT DISPATCH ---------- */
+
+  const parseStatement = (): StatementNode => {
+    if (!current) {
+      throw new ParserError("Unexpected end of input");
+    }
+
+    // block
+    if (current.type === "parens" && current.value === "{") {
+      return parseBlockStatement();
+    }
+
+    // keyword-based
+    if (current.type === "keyword") {
+      switch (current.value) {
+        case "print":
+          return parsePrintStatement();
+        case "let":
+          return parseVariableDeclaration();
+        case "if":
+          return parseIfStatement();
+        case "while":
+          return parseWhileStatement();
+        case "break":
+          return parseBreakStatement();
+        case "continue":
+          return parseContinueStatement();
+
+        /* ===============================
+           ADDITION 2️⃣ : SETPIXEL CASE
+           =============================== */
+        case "setpixel":
+          return parseSetPixelStatement();
+      }
+    }
+
+    // assignment
+    if (current.type === "identifier") {
+      return parseAssignmentStatement();
+    }
+
+    throw new ParserError(
+      `Unexpected token '${current.value}'`,
+      current
+    );
+  };
 
   /* ---------- PROGRAM ---------- */
 

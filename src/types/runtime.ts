@@ -7,8 +7,15 @@ export interface Runtime {
   ): Promise<TickFunction>;
 }
 
+/* 
+  TickFunction is still callable,
+  but now ALSO carries a renderer.
+*/
 export interface TickFunction {
   (): void;
+
+  // 👇 ADDITIVE (nothing removed)
+  renderToCanvas?: (canvas: HTMLCanvasElement) => void;
 }
 
 export interface Environment {

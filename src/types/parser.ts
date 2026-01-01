@@ -26,7 +26,8 @@ export type StatementNode =
   | IfStatementNode
   | WhileStatementNode
   | BreakStatementNode
-  | ContinueStatementNode;
+  | ContinueStatementNode
+  | SetPixelStatementNode; // ✅ ADDITION
 
 /* ---------- EXPRESSIONS ---------- */
 
@@ -78,6 +79,15 @@ export interface BreakStatementNode extends ProgramNode {
 
 export interface ContinueStatementNode extends ProgramNode {
   type: "continueStatement";
+}
+
+/* ---------- SETPIXEL STATEMENT (ADDED, NOTHING REMOVED) ---------- */
+
+export interface SetPixelStatementNode extends ProgramNode {
+  type: "setpixelStatement";
+  x: ExpressionNode;
+  y: ExpressionNode;
+  value: ExpressionNode;
 }
 
 /* ---------- EXPRESSION NODES ---------- */
