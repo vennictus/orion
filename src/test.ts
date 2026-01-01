@@ -138,6 +138,130 @@ async function run() {
     [5, 1, 1]
   );
 
+  /* ===== IF / ELSE ===== */
+  await test(
+    "if true branch",
+    `
+      if (1)
+        print 10
+      end
+    `,
+    [10]
+  );
+
+  await test(
+    "if false branch (no else)",
+    `
+      if (0)
+        print 10
+      end
+    `,
+    []
+  );
+
+  await test(
+    "if else true",
+    `
+      if (1)
+        print 1
+      else
+        print 2
+      end
+    `,
+    [1]
+  );
+
+  await test(
+    "if else false",
+    `
+      if (0)
+        print 1
+      else
+        print 2
+      end
+    `,
+    [2]
+  );
+
+  await test(
+    "if with comparison",
+    `
+      if (3 < 5)
+        print 7
+      else
+        print 9
+      end
+    `,
+    [7]
+  );
+
+  await test(
+    "if with variables",
+    `
+      let x = 4
+      if (x == 4)
+        print (x+1)
+      else
+        print 0
+      end
+    `,
+    [5]
+  );
+
+  await test(
+    "if scope isolation",
+    `
+      let x = 1
+      if (1)
+        let x = 10
+        print x
+      end
+      print x
+    `,
+    [10, 1]
+  );
+
+  await test(
+  "simple while loop",
+  `
+    let x = 0
+    while (x < 3)
+      print x
+      x = (x + 1)
+    end
+  `,
+  [0, 1, 2]
+);
+
+await test(
+  "while with false condition",
+  `
+    let x = 10
+    while (x < 5)
+      print x
+    end
+    print 99
+  `,
+  [99]
+);
+
+await test(
+  "nested while",
+  `
+    let i = 0
+    while (i < 2)
+      let j = 0
+      while (j < 2)
+        print (i + j)
+        j = (j + 1)
+      end
+      i = (i + 1)
+    end
+  `,
+  [0,1,1,2]
+);
+
+
   /* ===== STACK DISCIPLINE ===== */
   await test(
     "evaluation order",

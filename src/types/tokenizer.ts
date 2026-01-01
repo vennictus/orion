@@ -22,3 +22,12 @@ export interface Tokenizer {
 export interface Matcher {
   (input: string, index: number): Token | null;
 }
+
+
+export const keywords = [
+  "print",
+  "let",
+  "if",
+  "else",
+  "end",
+];

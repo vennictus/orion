@@ -49,3 +49,23 @@ export enum ExportKind {
 }
 
 export const FUNC_TYPE = 0x60;
+
+
+export enum Opcode {
+  // control
+  block = 0x02,
+  loop = 0x03,
+  br = 0x0c,
+  br_if = 0x0d,
+
+  // comparisons
+  i32_eqz = 0x45,
+
+  // existing...
+  
+}
+
+
+export enum BlockType {
+  void = 0x40,
+}

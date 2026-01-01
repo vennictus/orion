@@ -8,7 +8,8 @@ import {
   FUNC_TYPE,
 } from "./constants";
 
-import { f32, unsignedLEB128, encodeString } from "./encoding";
+import { f32, unsignedLEB128, signedLEB128, encodeString } from "./encoding";
+
 import { Program } from "../types/parser";
 
 /* ---------- WASM HEADERS ---------- */
@@ -32,10 +33,7 @@ type ValueType = "f32" | "i32";
 
 /* ---------- OPCODE MAP ---------- */
 
-const binaryOpcode: Record<
-  string,
-  { opcode: Opcode; result: ValueType }
-> = {
+const binaryOpcode: Record<string, { opcode: Opcode; result: ValueType }> = {
   "+": { opcode: Opcode.f32_add, result: "f32" },
   "-": { opcode: Opcode.f32_sub, result: "f32" },
   "*": { opcode: Opcode.f32_mul, result: "f32" },
@@ -82,12 +80,10 @@ function resolveSymbol(name: string): number {
 
 function emitExpression(node: any, code: number[]): ValueType {
   switch (node.type) {
-
-    /* ---------- LITERALS ---------- */
     case "numberLiteral": {
       if (Number.isInteger(node.value)) {
         code.push(Opcode.i32_const);
-        code.push(...unsignedLEB128(node.value));
+        code.push(...signedLEB128(node.value));
         return "i32";
       } else {
         code.push(Opcode.f32_const);
@@ -96,48 +92,46 @@ function emitExpression(node: any, code: number[]): ValueType {
       }
     }
 
-    /* ---------- IDENTIFIERS ---------- */
     case "identifier": {
       const index = resolveSymbol(node.name);
       code.push(Opcode.get_local);
       code.push(...unsignedLEB128(index));
-
-      // Language rule: variables are numeric,
-      // but WASM locals are stored as f32
       return "f32";
     }
 
-    /* ---------- BINARY EXPRESSIONS ---------- */
     case "binaryExpression": {
       const operator = node.operator;
       const entry = binaryOpcode[operator];
 
-      const isArithmetic = operator === "+" || operator === "-" || operator === "*" || operator === "/";
-      const isComparison = operator === "==" || operator === "<" || operator === ">";
+      const isArithmetic =
+        operator === "+" ||
+        operator === "-" ||
+        operator === "*" ||
+        operator === "/";
+
+      const isComparison =
+        operator === "==" ||
+        operator === "<" ||
+        operator === ">";
+
       const isLogical = operator === "&&";
 
-      /* --- LEFT OPERAND --- */
       const leftType = emitExpression(node.left, code);
-
       if ((isArithmetic || isComparison) && leftType === "i32") {
         code.push(Opcode.f32_convert_i32_s);
       }
 
-      /* --- RIGHT OPERAND --- */
       const rightType = emitExpression(node.right, code);
-
       if ((isArithmetic || isComparison) && rightType === "i32") {
         code.push(Opcode.f32_convert_i32_s);
       }
 
-      /* --- TYPE CHECKS --- */
       if (isLogical) {
         if (leftType !== "i32" || rightType !== "i32") {
           throw new Error("Operator && requires i32 operands");
         }
       }
 
-      /* --- EMIT OPERATOR --- */
       code.push(entry.opcode);
       return entry.result;
     }
@@ -158,34 +152,30 @@ function emitStatement(stmt: any, code: number[]) {
     }
 
     case "variableDeclaration": {
-  const valueType = emitExpression(stmt.initializer, code);
+      const valueType = emitExpression(stmt.initializer, code);
 
-  // FIX: locals are f32
-  if (valueType === "i32") {
-    code.push(Opcode.f32_convert_i32_s);
-  }
+      if (valueType === "i32") {
+        code.push(Opcode.f32_convert_i32_s);
+      }
 
-  const index = declareSymbol(stmt.name);
-  code.push(Opcode.set_local);
-  code.push(...unsignedLEB128(index));
-  break;
-}
-
+      const index = declareSymbol(stmt.name);
+      code.push(Opcode.set_local);
+      code.push(...unsignedLEB128(index));
+      break;
+    }
 
     case "assignmentStatement": {
-  const index = resolveSymbol(stmt.name);
-  const valueType = emitExpression(stmt.value, code);
+      const index = resolveSymbol(stmt.name);
+      const valueType = emitExpression(stmt.value, code);
 
-  // FIX: locals are f32
-  if (valueType === "i32") {
-    code.push(Opcode.f32_convert_i32_s);
-  }
+      if (valueType === "i32") {
+        code.push(Opcode.f32_convert_i32_s);
+      }
 
-  code.push(Opcode.set_local);
-  code.push(...unsignedLEB128(index));
-  break;
-}
-
+      code.push(Opcode.set_local);
+      code.push(...unsignedLEB128(index));
+      break;
+    }
 
     case "blockStatement": {
       enterScope();
@@ -196,15 +186,121 @@ function emitStatement(stmt: any, code: number[]) {
       break;
     }
 
-    default:
-      throw new Error(`Unknown statement ${stmt.type}`);
+    /* ---------- IF STATEMENT ---------- */
+    case "ifStatement": {
+      code.push(Opcode.block);
+      code.push(0x40);
+
+      code.push(Opcode.block);
+      code.push(0x40);
+
+      const condType = emitExpression(stmt.condition, code);
+      if (condType !== "i32") {
+        throw new Error("if condition must be i32");
+      }
+
+      code.push(Opcode.i32_eqz);
+
+      code.push(Opcode.br_if);
+      code.push(...signedLEB128(0));
+
+      enterScope();
+      for (const inner of stmt.thenBlock) {
+        emitStatement(inner, code);
+      }
+      exitScope();
+
+      code.push(Opcode.br);
+      code.push(...signedLEB128(1));
+
+      code.push(Opcode.end);
+
+      if (stmt.elseBlock) {
+        enterScope();
+        for (const inner of stmt.elseBlock) {
+          emitStatement(inner, code);
+        }
+        exitScope();
+      }
+
+      code.push(Opcode.end);
+      break;
+    }
+
+/* ---------- WHILE STATEMENT ---------- */
+case "whileStatement": {
+
+  // 🔥 SPECIAL CASE: empty body → single condition check
+  if (stmt.body.length === 0) {
+
+    // block to safely consume condition
+    code.push(Opcode.block);
+    code.push(0x40);
+
+    const condType = emitExpression(stmt.condition, code);
+    if (condType !== "i32") {
+      throw new Error("while condition must be i32");
+    }
+
+    // negate condition
+    code.push(Opcode.i32_eqz);
+
+    // exit block immediately
+    code.push(Opcode.br_if);
+    code.push(...signedLEB128(0));
+
+    // end block
+    code.push(Opcode.end);
+
+    break;
   }
+
+  // ===============================
+  // NORMAL WHILE LOOP (UNCHANGED)
+  // ===============================
+
+  // outer block (exit target)
+  code.push(Opcode.block);
+  code.push(0x40);
+
+  // inner loop (repeat target)
+  code.push(Opcode.loop);
+  code.push(0x40);
+
+  const condType = emitExpression(stmt.condition, code);
+  if (condType !== "i32") {
+    throw new Error("while condition must be i32");
+  }
+
+  code.push(Opcode.i32_eqz);
+
+  // if false → break out of block
+  code.push(Opcode.br_if);
+  code.push(...signedLEB128(1));
+
+  // --- loop body ---
+  enterScope();
+  for (const inner of stmt.body) {
+    emitStatement(inner, code);
+  }
+  exitScope();
+
+  // jump back to loop start
+  code.push(Opcode.br);
+  code.push(...signedLEB128(0));
+
+  code.push(Opcode.end); // loop
+  code.push(Opcode.end); // block
+
+  break;
 }
 
+  }
+}
 /* ---------- EMITTER ---------- */
 
 export function emitter(ast: Program): Uint8Array {
-  enterScope(); // global scope
+  enterScope();
 
   const code: number[] = [];
   for (const stmt of ast) {
@@ -212,8 +308,6 @@ export function emitter(ast: Program): Uint8Array {
   }
 
   exitScope();
-
-  /* ---------- TYPE SECTION ---------- */
 
   const runType = [FUNC_TYPE, 0x00, 0x00];
 
@@ -236,8 +330,6 @@ export function emitter(ast: Program): Uint8Array {
     encodeVector([runType, printF32Type, printI32Type])
   );
 
-  /* ---------- IMPORT SECTION ---------- */
-
   const importSection = createSection(
     Section.Import,
     encodeVector([
@@ -256,14 +348,10 @@ export function emitter(ast: Program): Uint8Array {
     ])
   );
 
-  /* ---------- FUNCTION SECTION ---------- */
-
   const funcSection = createSection(
     Section.Function,
     encodeVector([[...unsignedLEB128(0)]])
   );
-
-  /* ---------- EXPORT SECTION ---------- */
 
   const exportSection = createSection(
     Section.Export,
@@ -271,8 +359,6 @@ export function emitter(ast: Program): Uint8Array {
       [...encodeString("run"), ExportKind.func, ...unsignedLEB128(2)],
     ])
   );
-
-  /* ---------- CODE SECTION ---------- */
 
   const locals =
     localCount === 0
@@ -289,8 +375,6 @@ export function emitter(ast: Program): Uint8Array {
     Section.Code,
     encodeVector([[...unsignedLEB128(body.length), ...body]])
   );
-
-  /* ---------- MODULE ---------- */
 
   return Uint8Array.from([
     ...MAGIC,

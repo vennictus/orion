@@ -11,6 +11,31 @@ export function unsignedLEB128(n: number): number[] {
   return out;
 }
 
+export function signedLEB128(n: number): number[] {
+  const out: number[] = [];
+  let more = true;
+  const isNegative = n < 0;
+
+  while (more) {
+    let byte = n & 0x7f;
+    n >>= 7;
+
+    if (
+      (n === 0 && (byte & 0x40) === 0) ||
+      (n === -1 && (byte & 0x40) !== 0)
+    ) {
+      more = false;
+    } else {
+      byte |= 0x80;
+    }
+
+    out.push(byte);
+  }
+
+  return out;
+}
+
+
 export function encodeString(str: string): number[] {
   const bytes = Array.from(Buffer.from(str, "utf8"));
   return [...unsignedLEB128(bytes.length), ...bytes];

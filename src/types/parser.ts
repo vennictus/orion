@@ -22,7 +22,9 @@ export type StatementNode =
   | PrintStatementNode
   | VariableDeclarationNode
   | AssignmentStatementNode
-  | BlockStatementNode;
+  | BlockStatementNode
+  | IfStatementNode
+  | WhileStatementNode;
 
 /* ---------- EXPRESSIONS ---------- */
 
@@ -85,3 +87,19 @@ export type Operator =
   | "<"
   | ">"
   | "&&";
+
+
+
+export interface IfStatementNode extends ProgramNode {
+  type: "ifStatement";
+  condition: ExpressionNode;
+  thenBlock: StatementNode[];
+  elseBlock?: StatementNode[];
+}
+
+export interface WhileStatementNode extends ProgramNode {
+  type: "whileStatement";
+  condition: ExpressionNode;
+  body: StatementNode[];
+}
+

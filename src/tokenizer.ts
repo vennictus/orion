@@ -3,7 +3,15 @@
 import { Token, Tokenizer, TokenType, Matcher } from "./types/tokenizer";
 
 // supported keywords & operators
-export const keywords = ["print", "let"];
+export const keywords = [
+  "print",
+  "let",
+  "if",
+  "else",
+  "end",
+  "while",
+];
+
 export const operators = ["+", "-", "*", "/", "==", "<", ">", "&&"];
 
 // identifiers: variable names
