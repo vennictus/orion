@@ -128,6 +128,11 @@ Mandelbrot is used as a validation workload rather than a visual demo. Rendering
 
 Any flaw in expression evaluation, control flow construction, or memory addressing produces visible corruption in the output. The fact that the image renders correctly provides strong evidence that the compiler's execution model is correct.
 
+## Mandelbrot validation
+
+![Mandelbrot set rendered by ASTRA via ORION](assets/mandelBrotSet.png)
+
+
 ---
 
 ## Project structure
