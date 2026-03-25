@@ -53,7 +53,8 @@ const regexMatcher =
 const matchers: Matcher[] = [
   regexMatcher("^[0-9]+(\\.[0-9]+)?", "number"),
 
-  regexMatcher(`^(${keywords.join("|")})`, "keyword"),
+  // Match keywords only as complete words (not prefix of identifier)
+  regexMatcher(`^(${keywords.join("|")})(?![a-zA-Z0-9_])`, "keyword"),
 
   regexMatcher(identifierRegex, "identifier"),
 

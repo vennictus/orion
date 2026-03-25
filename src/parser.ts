@@ -10,9 +10,12 @@ import {
   VariableDeclarationNode,
   AssignmentStatementNode,
   BlockStatementNode,
+  IfStatementNode,
+  WhileStatementNode,
   Operator,
   BreakStatementNode,
   ContinueStatementNode,
+  SetPixelStatementNode,
 } from "./types/parser";
 
 export class ParserError extends Error {
@@ -213,9 +216,9 @@ export const parse: Parser = (tokens) => {
     };
   };
 
-  /* ---------- IF STATEMENT (UNCHANGED) ---------- */
+  /* ---------- IF STATEMENT ---------- */
 
-  const parseIfStatement = (): any => {
+  const parseIfStatement = (): IfStatementNode => {
     eat("if");
 
     eat("(");
@@ -263,9 +266,9 @@ export const parse: Parser = (tokens) => {
     };
   };
 
-  /* ---------- WHILE STATEMENT (UNCHANGED) ---------- */
+  /* ---------- WHILE STATEMENT ---------- */
 
-  const parseWhileStatement = (): any => {
+  const parseWhileStatement = (): WhileStatementNode => {
     eat("while");
 
     eat("(");
@@ -305,7 +308,7 @@ export const parse: Parser = (tokens) => {
 
   //Added setpixel statement parser
 
-  const parseSetPixelStatement = (): StatementNode => {
+  const parseSetPixelStatement = (): SetPixelStatementNode => {
     eat("setpixel");
 
     const x = parseExpression();

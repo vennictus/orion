@@ -6,6 +6,7 @@ import {
   Opcode,
   ExportKind,
   FUNC_TYPE,
+  BlockType,
 } from "./constants";
 
 import { f32, unsignedLEB128, signedLEB128, encodeString } from "./encoding";
@@ -16,6 +17,16 @@ import { Program } from "../types/parser";
 
 const MAGIC = [0x00, 0x61, 0x73, 0x6d];
 const VERSION = [0x01, 0x00, 0x00, 0x00];
+
+/* ---------- SHARED CONSTANTS ---------- */
+
+export const CANVAS_WIDTH = 100;
+export const CANVAS_HEIGHT = 100;
+
+/* ---------- FUNCTION INDICES ---------- */
+
+const IMPORT_COUNT = 2; // print_f32, print_i32
+const RUN_FUNC_INDEX = IMPORT_COUNT; // run is first local function
 
 /* ---------- HELPERS ---------- */
 
@@ -30,9 +41,6 @@ function createSection(section: Section, payload: number[]): number[] {
 /* ---------- TYPES ---------- */
 
 type ValueType = "f32" | "i32";
-
-let controlDepth = 0;
-
 
 /* ---------- OPCODE MAP ---------- */
 
@@ -52,35 +60,6 @@ const binaryOpcode: Record<string, { opcode: Opcode; result: ValueType }> = {
 
 type Scope = Map<string, number>;
 
-const scopes: Scope[] = [];
-let localCount = 0;
-
-function enterScope() {
-  scopes.push(new Map());
-}
-
-function exitScope() {
-  scopes.pop();
-}
-
-function declareSymbol(name: string): number {
-  const index = localCount++;
-  scopes[scopes.length - 1].set(name, index);
-  return index;
-}
-
-function resolveSymbol(name: string): number {
-  for (let i = scopes.length - 1; i >= 0; i--) {
-    const scope = scopes[i];
-    if (scope.has(name)) {
-      return scope.get(name)!;
-    }
-  }
-  throw new Error(`Undefined variable '${name}'`);
-}
-
-
-
 /* ---------- LOOP STACK ---------- */
 
 type LoopContext = {
@@ -88,13 +67,53 @@ type LoopContext = {
   loopDepth: number;  // absolute control depth of the loop
 };
 
-const loopStack: LoopContext[] = [];
+/* ---------- COMPILER STATE ---------- */
+
+interface CompilerState {
+  scopes: Scope[];
+  localCount: number;
+  controlDepth: number;
+  loopStack: LoopContext[];
+}
+
+function createState(): CompilerState {
+  return {
+    scopes: [],
+    localCount: 0,
+    controlDepth: 0,
+    loopStack: [],
+  };
+}
+
+function enterScope(state: CompilerState) {
+  state.scopes.push(new Map());
+}
+
+function exitScope(state: CompilerState) {
+  state.scopes.pop();
+}
+
+function declareSymbol(state: CompilerState, name: string): number {
+  const index = state.localCount++;
+  state.scopes[state.scopes.length - 1].set(name, index);
+  return index;
+}
+
+function resolveSymbol(state: CompilerState, name: string): number {
+  for (let i = state.scopes.length - 1; i >= 0; i--) {
+    const scope = state.scopes[i];
+    if (scope.has(name)) {
+      return scope.get(name)!;
+    }
+  }
+  throw new Error(`Undefined variable '${name}'`);
+}
  
 
 
 /* ---------- EXPRESSION EMITTER ---------- */
 
-function emitExpression(node: any, code: number[]): ValueType {
+function emitExpression(node: any, code: number[], state: CompilerState): ValueType {
   switch (node.type) {
     case "numberLiteral": {
       if (Number.isInteger(node.value)) {
@@ -109,7 +128,7 @@ function emitExpression(node: any, code: number[]): ValueType {
     }
 
     case "identifier": {
-      const index = resolveSymbol(node.name);
+      const index = resolveSymbol(state, node.name);
       code.push(Opcode.get_local);
       code.push(...unsignedLEB128(index));
       return "f32";
@@ -132,20 +151,28 @@ function emitExpression(node: any, code: number[]): ValueType {
 
       const isLogical = operator === "&&";
 
-      const leftType = emitExpression(node.left, code);
+      const leftType = emitExpression(node.left, code, state);
       if ((isArithmetic || isComparison) && leftType === "i32") {
         code.push(Opcode.f32_convert_i32_s);
       }
+      // For logical &&, convert f32 to i32 (truthiness check)
+      if (isLogical && leftType === "f32") {
+        code.push(Opcode.f32_const);
+        code.push(...f32(0));
+        code.push(Opcode.f32_eq);
+        code.push(Opcode.i32_eqz); // f32 != 0.0 → i32
+      }
 
-      const rightType = emitExpression(node.right, code);
+      const rightType = emitExpression(node.right, code, state);
       if ((isArithmetic || isComparison) && rightType === "i32") {
         code.push(Opcode.f32_convert_i32_s);
       }
-
-      if (isLogical) {
-        if (leftType !== "i32" || rightType !== "i32") {
-          throw new Error("Operator && requires i32 operands");
-        }
+      // For logical &&, convert f32 to i32 (truthiness check)
+      if (isLogical && rightType === "f32") {
+        code.push(Opcode.f32_const);
+        code.push(...f32(0));
+        code.push(Opcode.f32_eq);
+        code.push(Opcode.i32_eqz); // f32 != 0.0 → i32
       }
 
       code.push(entry.opcode);
@@ -157,32 +184,32 @@ function emitExpression(node: any, code: number[]): ValueType {
 }
 
 /* ---------- STATEMENT EMITTER ---------- */
- function emitStatement(stmt: any, code: number[]) {
+function emitStatement(stmt: any, code: number[], state: CompilerState) {
   switch (stmt.type) {
 
     case "printStatement": {
-      const type = emitExpression(stmt.expression, code);
+      const type = emitExpression(stmt.expression, code, state);
       code.push(Opcode.call);
       code.push(...unsignedLEB128(type === "f32" ? 0 : 1));
       break;
     }
 
     case "variableDeclaration": {
-      const valueType = emitExpression(stmt.initializer, code);
+      const valueType = emitExpression(stmt.initializer, code, state);
 
       if (valueType === "i32") {
         code.push(Opcode.f32_convert_i32_s);
       }
 
-      const index = declareSymbol(stmt.name);
+      const index = declareSymbol(state, stmt.name);
       code.push(Opcode.set_local);
       code.push(...unsignedLEB128(index));
       break;
     }
 
     case "assignmentStatement": {
-      const index = resolveSymbol(stmt.name);
-      const valueType = emitExpression(stmt.value, code);
+      const index = resolveSymbol(state, stmt.name);
+      const valueType = emitExpression(stmt.value, code, state);
 
       if (valueType === "i32") {
         code.push(Opcode.f32_convert_i32_s);
@@ -194,63 +221,62 @@ function emitExpression(node: any, code: number[]): ValueType {
     }
 
     case "blockStatement": {
-      enterScope();
+      enterScope(state);
       for (const inner of stmt.body) {
-        emitStatement(inner, code);
+        emitStatement(inner, code, state);
       }
-      exitScope();
+      exitScope(state);
       break;
     }
 
     /* ---------- IF STATEMENT ---------- */
     case "ifStatement": {
       code.push(Opcode.block);
-      code.push(0x40);
-      controlDepth++;
+      code.push(BlockType.void);
+      state.controlDepth++;
 
       code.push(Opcode.block);
-      code.push(0x40);
-      controlDepth++;
+      code.push(BlockType.void);
+      state.controlDepth++;
 
-      const condType = emitExpression(stmt.condition, code);
+      const condType = emitExpression(stmt.condition, code, state);
 
-if (condType === "f32") {
-  // f32 truthiness: x != 0.0
-  code.push(Opcode.f32_const);
-  code.push(...f32(0));
-  code.push(Opcode.f32_eq); // x == 0 → i32
-  code.push(Opcode.i32_eqz); // invert → x != 0
-} else if (condType !== "i32") {
-  throw new Error("if condition must be i32 or f32");
-}
-
+      if (condType === "f32") {
+        // f32 truthiness: x != 0.0
+        code.push(Opcode.f32_const);
+        code.push(...f32(0));
+        code.push(Opcode.f32_eq); // x == 0 → i32
+        code.push(Opcode.i32_eqz); // invert → x != 0
+      } else if (condType !== "i32") {
+        throw new Error("if condition must be i32 or f32");
+      }
 
       code.push(Opcode.i32_eqz);
       code.push(Opcode.br_if);
       code.push(...signedLEB128(0));
 
-      enterScope();
+      enterScope(state);
       for (const inner of stmt.thenBlock) {
-        emitStatement(inner, code);
+        emitStatement(inner, code, state);
       }
-      exitScope();
+      exitScope(state);
 
       code.push(Opcode.br);
       code.push(...signedLEB128(1));
 
       code.push(Opcode.end);
-      controlDepth--;
+      state.controlDepth--;
 
       if (stmt.elseBlock) {
-        enterScope();
+        enterScope(state);
         for (const inner of stmt.elseBlock) {
-          emitStatement(inner, code);
+          emitStatement(inner, code, state);
         }
-        exitScope();
+        exitScope(state);
       }
 
       code.push(Opcode.end);
-      controlDepth--;
+      state.controlDepth--;
       break;
     }
 
@@ -260,10 +286,10 @@ if (condType === "f32") {
       /* --- EMPTY BODY --- */
       if (stmt.body.length === 0) {
         code.push(Opcode.block);
-        code.push(0x40);
-        controlDepth++;
+        code.push(BlockType.void);
+        state.controlDepth++;
 
-        const condType = emitExpression(stmt.condition, code);
+        const condType = emitExpression(stmt.condition, code, state);
         if (condType !== "i32") {
           throw new Error("while condition must be i32");
         }
@@ -273,7 +299,7 @@ if (condType === "f32") {
         code.push(...signedLEB128(0));
 
         code.push(Opcode.end);
-        controlDepth--;
+        state.controlDepth--;
         break;
       }
 
@@ -281,21 +307,21 @@ if (condType === "f32") {
 
       // block (break target)
       code.push(Opcode.block);
-      code.push(0x40);
-      controlDepth++;
+      code.push(BlockType.void);
+      state.controlDepth++;
 
       // loop (continue target)
       code.push(Opcode.loop);
-      code.push(0x40);
-      controlDepth++;
+      code.push(BlockType.void);
+      state.controlDepth++;
 
       // store absolute depths
-      loopStack.push({
-        blockDepth: controlDepth - 1,
-        loopDepth: controlDepth - 0,
+      state.loopStack.push({
+        blockDepth: state.controlDepth - 1,
+        loopDepth: state.controlDepth - 0,
       });
 
-      const condType = emitExpression(stmt.condition, code);
+      const condType = emitExpression(stmt.condition, code, state);
       if (condType !== "i32") {
         throw new Error("while condition must be i32");
       }
@@ -304,78 +330,77 @@ if (condType === "f32") {
       code.push(Opcode.br_if);
       code.push(...signedLEB128(1));
 
-      enterScope();
+      enterScope(state);
       for (const inner of stmt.body) {
-        emitStatement(inner, code);
+        emitStatement(inner, code, state);
       }
-      exitScope();
+      exitScope(state);
 
       code.push(Opcode.br);
       code.push(...signedLEB128(0));
 
-      loopStack.pop();
+      state.loopStack.pop();
 
       code.push(Opcode.end);
-      controlDepth--;
+      state.controlDepth--;
 
       code.push(Opcode.end);
-      controlDepth--;
+      state.controlDepth--;
       break;
     }
 
     /* ---------- BREAK ---------- */
     case "breakStatement": {
-      if (loopStack.length === 0) {
+      if (state.loopStack.length === 0) {
         throw new Error("break used outside of loop");
       }
 
-      const ctx = loopStack[loopStack.length - 1];
+      const ctx = state.loopStack[state.loopStack.length - 1];
       code.push(Opcode.br);
-      code.push(...signedLEB128(controlDepth - ctx.blockDepth));
+      code.push(...signedLEB128(state.controlDepth - ctx.blockDepth));
       break;
     }
 
     /* ---------- CONTINUE ---------- */
     case "continueStatement": {
-      if (loopStack.length === 0) {
+      if (state.loopStack.length === 0) {
         throw new Error("continue used outside of loop");
       }
 
-      const ctx = loopStack[loopStack.length - 1];
+      const ctx = state.loopStack[state.loopStack.length - 1];
       code.push(Opcode.br);
-      code.push(...signedLEB128(controlDepth - ctx.loopDepth));
+      code.push(...signedLEB128(state.controlDepth - ctx.loopDepth));
       break;
     }
+
     case "setpixelStatement": {
-  const WIDTH = 100;
+      // x
+      const xType = emitExpression(stmt.x, code, state);
+      if (xType === "f32") code.push(Opcode.i32_trunc_f32_s);
 
-  // x
-  const xType = emitExpression(stmt.x, code);
-  if (xType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      // y
+      const yType = emitExpression(stmt.y, code, state);
+      if (yType === "f32") code.push(Opcode.i32_trunc_f32_s);
 
-  // y
-  const yType = emitExpression(stmt.y, code);
-  if (yType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      // y * WIDTH
+      code.push(Opcode.i32_const);
+      code.push(...signedLEB128(CANVAS_WIDTH));
+      code.push(Opcode.i32_mul);
 
-  // y * WIDTH
-  code.push(Opcode.i32_const);
-  code.push(...signedLEB128(WIDTH));
-  code.push(Opcode.i32_mul);
+      // + x
+      code.push(Opcode.i32_add);
 
-  // + x
-  code.push(Opcode.i32_add);
+      // value
+      const vType = emitExpression(stmt.value, code, state);
+      if (vType === "f32") code.push(Opcode.i32_trunc_f32_s);
 
-  // value
-  const vType = emitExpression(stmt.value, code);
-  if (vType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      // store byte
+      code.push(Opcode.i32_store8);
+      code.push(0x00); // align
+      code.push(0x00); // offset
 
-  // store byte
-  code.push(Opcode.i32_store8);
-  code.push(0x00); // align
-  code.push(0x00); // offset
-
-  break;
-}
+      break;
+    }
 
     default:
       throw new Error(`Unknown statement ${stmt.type}`);
@@ -385,14 +410,15 @@ if (condType === "f32") {
 /* ---------- EMITTER ---------- */
 
 export function emitter(ast: Program): Uint8Array {
-  enterScope();
+  const state = createState();
+  enterScope(state);
 
   const code: number[] = [];
   for (const stmt of ast) {
-    emitStatement(stmt, code);
+    emitStatement(stmt, code, state);
   }
 
-  exitScope();
+  exitScope(state);
 
   const runType = [FUNC_TYPE, 0x00, 0x00];
 
@@ -432,33 +458,34 @@ export function emitter(ast: Program): Uint8Array {
       ],
     ])
   );
+
   const memorySection = createSection(
-  Section.Memory,
-  encodeVector([
-    [
-      0x00,                // flags: min only
-      ...unsignedLEB128(1) // initial = 1 page (64KB)
-    ],
-  ])
-);
+    Section.Memory,
+    encodeVector([
+      [
+        0x00,                // flags: min only
+        ...unsignedLEB128(1) // initial = 1 page (64KB)
+      ],
+    ])
+  );
 
   const funcSection = createSection(
     Section.Function,
     encodeVector([[...unsignedLEB128(0)]])
   );
 
-const exportSection = createSection(
-  Section.Export,
-  encodeVector([
-    [...encodeString("run"), ExportKind.func, ...unsignedLEB128(2)],
-    [...encodeString("memory"), ExportKind.memory, ...unsignedLEB128(0)],
-  ])
-);
+  const exportSection = createSection(
+    Section.Export,
+    encodeVector([
+      [...encodeString("run"), ExportKind.func, ...unsignedLEB128(RUN_FUNC_INDEX)],
+      [...encodeString("memory"), ExportKind.memory, ...unsignedLEB128(0)],
+    ])
+  );
 
   const locals =
-    localCount === 0
+    state.localCount === 0
       ? []
-      : [[...unsignedLEB128(localCount), ValType.f32]];
+      : [[...unsignedLEB128(state.localCount), ValType.f32]];
 
   const body = [
     ...encodeVector(locals),
@@ -472,15 +499,13 @@ const exportSection = createSection(
   );
 
   return Uint8Array.from([
-  ...MAGIC,
-  ...VERSION,
-  ...typeSection,
-  ...importSection,
-  ...funcSection,    //  Function FIRST
-  ...memorySection,  //  Memory AFTER Function
-  ...exportSection,
-  ...codeSection,
-]);
-
-
+    ...MAGIC,
+    ...VERSION,
+    ...typeSection,
+    ...importSection,
+    ...funcSection,
+    ...memorySection,
+    ...exportSection,
+    ...codeSection,
+  ]);
 }

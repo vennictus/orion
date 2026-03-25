@@ -1,10 +1,8 @@
 import { compile } from "./compiler";
 import { Runtime } from "./types/runtime";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "./wasm/module";
 
 /* ---------- RENDER CONFIG ---------- */
-
-const WIDTH = 100;
-const HEIGHT = 100;
 
 function makePalette(): Uint8Array {
   const palette = new Uint8Array(256 * 3);
@@ -53,10 +51,6 @@ export const runtime: Runtime = async (src, environment) => {
 
   const memBuffer = new Uint8Array(memory.buffer);
 
-  // Smoke test (kept)
-  console.log("WASM memory size (bytes):", memBuffer.length);
-  console.log("First 32 bytes:", memBuffer.slice(0, 32));
-
   /* ---------- RENDERER ---------- */
 
   const palette = makePalette();
@@ -67,9 +61,9 @@ export const runtime: Runtime = async (src, environment) => {
       throw new Error("2D context not available");
     }
 
-    const image = ctx.createImageData(WIDTH, HEIGHT);
+    const image = ctx.createImageData(CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    for (let i = 0; i < WIDTH * HEIGHT; i++) {
+    for (let i = 0; i < CANVAS_WIDTH * CANVAS_HEIGHT; i++) {
       const iter = memBuffer[i];
 
       const r = palette[iter * 3 + 0];

@@ -1,12 +1,14 @@
 {
   "name": "orion",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-"scripts": {
-  "dev": "vite"
-},
-  "keywords": [],
+  "description": "A WebAssembly compiler for the ASTRA language",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc",
+    "test": "npx ts-node src/index.ts"
+  },
+  "keywords": ["wasm", "webassembly", "compiler"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
