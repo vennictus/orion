@@ -24,9 +24,6 @@
 <p align="center">
   <a href="#v1--core-compiler">v1.0 Core</a> |
   <a href="#v2--extended-language--playground">v2.0 Extended</a> |
-  <a href="#quick-start">Quick Start</a> |
-  <a href="GUIDE.md">Full Guide</a> |
-  <a href="PLAYGROUND.md">Playground Docs</a>
 </p>
 
 ---
@@ -225,17 +222,6 @@ ORION/
 └── README.md               This file
 ```
 
----
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [`GUIDE.md`](GUIDE.md) | Complete 2700+ line implementation guide — every concept explained |
-| [`PLAYGROUND.md`](PLAYGROUND.md) | Playground usage, controls, examples, troubleshooting |
-| [`CHANGELOG.md`](CHANGELOG.md) | Version history and changes |
-
----
 
 ## Design Principles
 
