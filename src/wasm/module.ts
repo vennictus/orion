@@ -20,8 +20,15 @@ const VERSION = [0x01, 0x00, 0x00, 0x00];
 
 /* ---------- SHARED CONSTANTS ---------- */
 
-export const CANVAS_WIDTH = 100;
-export const CANVAS_HEIGHT = 100;
+export let CANVAS_WIDTH = 100;
+export let CANVAS_HEIGHT = 100;
+
+/* ---------- EMITTER OPTIONS ---------- */
+
+export interface EmitterOptions {
+  width?: number;
+  height?: number;
+}
 
 /* ---------- FUNCTION INDICES ---------- */
 
@@ -457,30 +464,99 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
     }
 
     case "setpixelStatement": {
-      // x
+      // Calculate base offset: (y * WIDTH + x) * 4
       const xType = emitExpression(stmt.x, code, state);
       if (xType === "f32") code.push(Opcode.i32_trunc_f32_s);
-
-      // y
       const yType = emitExpression(stmt.y, code, state);
       if (yType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
 
-      // y * WIDTH
-      code.push(Opcode.i32_const);
-      code.push(...signedLEB128(CANVAS_WIDTH));
-      code.push(Opcode.i32_mul);
-
-      // + x
-      code.push(Opcode.i32_add);
-
-      // value
+      // value for R
       const vType = emitExpression(stmt.value, code, state);
       if (vType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_store8, 0x00, 0x00);
 
-      // store byte
-      code.push(Opcode.i32_store8);
-      code.push(0x00); // align
-      code.push(0x00); // offset
+      // G (recalc offset + 1)
+      const xType2 = emitExpression(stmt.x, code, state);
+      if (xType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      const yType2 = emitExpression(stmt.y, code, state);
+      if (yType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+      const vType2 = emitExpression(stmt.value, code, state);
+      if (vType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_store8, 0x00, 0x01);
+
+      // B (recalc offset + 2)
+      const xType3 = emitExpression(stmt.x, code, state);
+      if (xType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      const yType3 = emitExpression(stmt.y, code, state);
+      if (yType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+      const vType3 = emitExpression(stmt.value, code, state);
+      if (vType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_store8, 0x00, 0x02);
+
+      // A = 255 (recalc offset + 3)
+      const xType4 = emitExpression(stmt.x, code, state);
+      if (xType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      const yType4 = emitExpression(stmt.y, code, state);
+      if (yType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+      code.push(Opcode.i32_const, ...signedLEB128(255));
+      code.push(Opcode.i32_store8, 0x00, 0x03);
+
+      break;
+    }
+
+    case "setpixelrgbStatement": {
+      // Calculate base offset: (y * WIDTH + x) * 4
+      const xType = emitExpression(stmt.x, code, state);
+      if (xType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      const yType = emitExpression(stmt.y, code, state);
+      if (yType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+
+      // R value
+      const rType = emitExpression(stmt.r, code, state);
+      if (rType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_store8, 0x00, 0x00);
+
+      // G (recalc offset)
+      const xType2 = emitExpression(stmt.x, code, state);
+      if (xType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      const yType2 = emitExpression(stmt.y, code, state);
+      if (yType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+      const gType = emitExpression(stmt.g, code, state);
+      if (gType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_store8, 0x00, 0x01);
+
+      // B (recalc offset)
+      const xType3 = emitExpression(stmt.x, code, state);
+      if (xType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      const yType3 = emitExpression(stmt.y, code, state);
+      if (yType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+      const bType = emitExpression(stmt.b, code, state);
+      if (bType === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_store8, 0x00, 0x02);
+
+      // A = 255
+      const xType4 = emitExpression(stmt.x, code, state);
+      if (xType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      const yType4 = emitExpression(stmt.y, code, state);
+      if (yType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
+      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
+      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+      code.push(Opcode.i32_const, ...signedLEB128(255));
+      code.push(Opcode.i32_store8, 0x00, 0x03);
 
       break;
     }
@@ -492,7 +568,11 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
 
 /* ---------- EMITTER ---------- */
 
-export function emitter(ast: Program): Uint8Array {
+export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array {
+  // Set canvas dimensions
+  CANVAS_WIDTH = options.width ?? 100;
+  CANVAS_HEIGHT = options.height ?? 100;
+  
   const state = createState();
   
   // Separate function declarations from statements
@@ -623,12 +703,18 @@ export function emitter(ast: Program): Uint8Array {
     ])
   );
 
+  // Calculate pages needed: RGBA = 4 bytes/pixel, page = 64KB
+  // For 500x500 canvas: 500*500*4 = 1,000,000 bytes = ~16 pages
+  const pixelBytes = CANVAS_WIDTH * CANVAS_HEIGHT * 4;
+  const pagesNeeded = Math.ceil(pixelBytes / 65536);
+  const memoryPages = Math.max(1, pagesNeeded);
+  
   const memorySection = createSection(
     Section.Memory,
     encodeVector([
       [
-        0x00,                // flags: min only
-        ...unsignedLEB128(1) // initial = 1 page (64KB)
+        0x00,                        // flags: min only
+        ...unsignedLEB128(memoryPages) // dynamically sized
       ],
     ])
   );

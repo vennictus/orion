@@ -15,6 +15,7 @@ export const keywords = [
   "break",
   "continue",
   "setpixel",
+  "setpixelrgb",
   "for",
   "in",
   "not",
@@ -58,6 +59,9 @@ const regexMatcher =
 /* ORDER MATTERS (highest priority first) */
 
 const matchers: Matcher[] = [
+  // Comments - skip entire line
+  regexMatcher("^//[^\n]*", "whitespace"),
+
   regexMatcher("^[0-9]+(\\.[0-9]+)?", "number"),
 
   // Match keywords only as complete words (not prefix of identifier)

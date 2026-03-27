@@ -1,13 +1,587 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Astra Renderer</title>
-  </head>
-  <body>
-    <canvas id="canvas" width="100" height="100"></canvas>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ORION // ASTRA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    <!-- entry -->
-    <script type="module" src="/main.ts"></script>
-  </body>
+    :root {
+      --bg-primary: #0c1220;
+      --bg-secondary: #101828;
+      --bg-tertiary: #162032;
+      --border: #1e2d42;
+      --text-primary: #f0f4f8;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --orange: #f97316;
+      --gold: #fbbf24;
+      --teal: #2dd4bf;
+      --green: #22c55e;
+      --rose: #f43f5e;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════════════════════════════ */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--orange);
+      letter-spacing: 1px;
+    }
+
+    .engine-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       TOOLBAR
+       ═══════════════════════════════════════════════════════════════════ */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 24px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .toolbar-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .toolbar-btn svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .toolbar-select {
+      padding: 8px 32px 8px 14px;
+      background: var(--bg-tertiary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") right 10px center no-repeat;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      appearance: none;
+      transition: all 0.15s;
+    }
+
+    .toolbar-select:hover {
+      border-color: var(--gold);
+      color: var(--text-primary);
+    }
+
+    .toolbar-select:focus {
+      outline: none;
+      border-color: var(--orange);
+    }
+
+    .spacer { flex: 1; }
+
+    .file-name {
+      font-size: 11px;
+      color: var(--gold);
+      letter-spacing: 0.5px;
+    }
+
+    .toolbar-metrics {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .toolbar-metric {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .toolbar-metric .metric-label {
+      color: var(--text-muted);
+      font-size: 9px;
+      letter-spacing: 0.5px;
+    }
+
+    .toolbar-metric span:last-child {
+      color: var(--gold);
+      font-weight: 500;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       MAIN LAYOUT
+       ═══════════════════════════════════════════════════════════════════ */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       CODE PANEL
+       ═══════════════════════════════════════════════════════════════════ */
+    .code-panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    #editor-container {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .code-footer {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+    }
+
+    .run-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 28px;
+      background: transparent;
+      border: 1px solid var(--orange);
+      color: var(--orange);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .run-btn:hover {
+      background: var(--orange);
+      color: var(--bg-primary);
+      box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+    }
+
+    .run-btn svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+    }
+
+    .shortcut {
+      font-size: 10px;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       OUTPUT PANEL
+       ═══════════════════════════════════════════════════════════════════ */
+    .output-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-primary);
+    }
+
+    /* Canvas Section */
+    .canvas-section {
+      display: flex;
+      flex-direction: column;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+    }
+
+    .canvas-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .size-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: 8px;
+    }
+
+    .size-input {
+      width: 56px;
+      padding: 4px 6px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .size-input:focus {
+      outline: none;
+      border-color: var(--orange);
+    }
+
+    .size-btn {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .size-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .canvas-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 350px;
+      padding: 16px;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+    }
+
+    #canvas {
+      display: block;
+      image-rendering: pixelated;
+      border: 1px solid var(--border);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       CONSOLE
+       ═══════════════════════════════════════════════════════════════════ */
+    .console-section {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 200px;
+      overflow: hidden;
+    }
+
+    .console-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .clear-console-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+
+    .clear-console-btn:hover {
+      color: var(--rose);
+    }
+
+    .clear-console-btn svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    #console {
+      flex: 1;
+      padding: 12px 20px;
+      background: var(--bg-primary);
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.8;
+      min-height: 120px;
+    }
+
+    .log-line {
+      display: flex;
+      gap: 12px;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .log-msg { color: var(--text-secondary); }
+    .log-info { color: var(--orange); }
+    .log-success { color: var(--green); }
+    .log-warn { color: var(--gold); }
+    .log-error { color: var(--rose); }
+
+    .log-prompt {
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       STATUS BAR
+       ═══════════════════════════════════════════════════════════════════ */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 24px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .status-bar-left,
+    .status-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .status-item.active {
+      color: var(--green);
+    }
+
+    .status-item.gold {
+      color: var(--gold);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">ORION // ASTRA</div>
+      <span class="file-name" id="file-name">EXAMPLES/MANDELBROT.ASTRA</span>
+      <div class="engine-status">
+        <span class="status-dot"></span>
+        <span>WASM_ENGINE: ACTIVE</span>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <select class="toolbar-select" id="examples">
+        <option value="">EXAMPLES</option>
+        <optgroup label="━━ Fractals ━━">
+          <option value="mandelbrot">Mandelbrot Set</option>
+          <option value="julia">Julia Set</option>
+          <option value="burningship">Burning Ship</option>
+        </optgroup>
+        <optgroup label="━━ Patterns ━━">
+          <option value="gradient">Rainbow Gradient</option>
+          <option value="checkerboard">Checkerboard</option>
+          <option value="stripes">Diagonal Stripes</option>
+          <option value="plasma">Plasma Effect</option>
+        </optgroup>
+        <optgroup label="━━ Shapes ━━">
+          <option value="circles">Concentric Circles</option>
+          <option value="sierpinski">Sierpinski Triangle</option>
+          <option value="crosshatch">Crosshatch</option>
+        </optgroup>
+        <optgroup label="━━ Functions ━━">
+          <option value="functions">Functions Demo</option>
+          <option value="recursive">Recursive Factorial</option>
+        </optgroup>
+      </select>
+      <button class="toolbar-btn" id="format-btn">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h12"/></svg>
+        FORMAT
+      </button>
+      <span class="spacer"></span>
+      <div class="toolbar-metrics">
+        <span class="toolbar-metric"><span class="metric-label">COMPILE</span><span id="metric-compile">—</span></span>
+        <span class="toolbar-metric"><span class="metric-label">EXEC</span><span id="metric-exec">—</span></span>
+        <span class="toolbar-metric"><span class="metric-label">WASM</span><span id="metric-wasm">—</span></span>
+        <span class="toolbar-metric"><span class="metric-label">TOKENS</span><span id="metric-tokens">—</span></span>
+        <span class="toolbar-metric"><span class="metric-label">AST</span><span id="metric-ast">—</span></span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Code Panel -->
+      <section class="code-panel">
+        <div id="editor-container"></div>
+        <div class="code-footer">
+          <button class="run-btn" id="clear-btn" style="border-color: var(--text-muted); color: var(--text-muted);">
+            <svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2"><path d="M3 6h18M8 6V4h8v2M5 6l1 14h12l1-14M10 11v6m4-6v6"/></svg>
+            CLEAR
+          </button>
+          <button class="run-btn" id="run-btn">
+            <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+            RUN PROGRAM
+          </button>
+          <span class="shortcut">Ctrl+Enter</span>
+          <span class="spacer"></span>
+        </div>
+      </section>
+
+      <!-- Output Panel -->
+      <section class="output-panel">
+        <!-- Canvas -->
+        <div class="canvas-section">
+          <div class="section-header">
+            <div class="section-title">
+              <span class="status-dot"></span>
+              VISUAL_OUTPUT.CANVAS
+            </div>
+            <div class="canvas-controls">
+              <span class="size-label">W</span>
+              <button class="size-btn" id="width-dec">−</button>
+              <input type="number" class="size-input" id="canvas-width" value="100" min="50" max="500" step="50">
+              <button class="size-btn" id="width-inc">+</button>
+              <span class="size-label" style="margin-left:12px">H</span>
+              <button class="size-btn" id="height-dec">−</button>
+              <input type="number" class="size-input" id="canvas-height" value="100" min="50" max="500" step="50">
+              <button class="size-btn" id="height-inc">+</button>
+            </div>
+          </div>
+          <div class="canvas-wrapper">
+            <canvas id="canvas" width="100" height="100"></canvas>
+          </div>
+        </div>
+
+        <!-- Console -->
+        <div class="console-section">
+          <div class="console-header">
+            <div class="section-title">
+              <span class="status-dot"></span>
+              CONSOLE
+            </div>
+            <button class="clear-console-btn" id="clear-console-btn">
+              <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M5 6l1 14h12l1-14M10 11v6m4-6v6"/></svg>
+              CLEAR
+            </button>
+          </div>
+          <div id="console"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-bar-left">
+        <span>ORION v1.0.0</span>
+        <span class="status-item gold">ASTRA COMPILER</span>
+      </div>
+      <div class="status-bar-right">
+        <span>TOKENS: <span id="status-tokens">0</span></span>
+        <span>WASM: <span id="status-wasm">0B</span></span>
+        <span class="status-item active">READY</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/playground.ts"></script>
+</body>
 </html>

@@ -29,6 +29,7 @@ export type StatementNode =
   | BreakStatementNode
   | ContinueStatementNode
   | SetPixelStatementNode
+  | SetPixelRGBStatementNode
   | ReturnStatementNode;
 
 /* ---------- EXPRESSIONS ---------- */
@@ -97,6 +98,15 @@ export interface SetPixelStatementNode extends ProgramNode {
   x: ExpressionNode;
   y: ExpressionNode;
   value: ExpressionNode;
+}
+
+export interface SetPixelRGBStatementNode extends ProgramNode {
+  type: "setpixelrgbStatement";
+  x: ExpressionNode;
+  y: ExpressionNode;
+  r: ExpressionNode;
+  g: ExpressionNode;
+  b: ExpressionNode;
 }
 
 /* ---------- FUNCTION DECLARATION ---------- */

@@ -245,13 +245,20 @@ async function run() {
       end
     `);
 
-    assertMemoryByte("pixel (0,0)", memory, 0, 0);
-    assertMemoryByte("pixel (1,0)", memory, 1, 1);
-    assertMemoryByte("pixel (2,0)", memory, 2, 2);
+    // RGBA format: each pixel is 4 bytes (R,G,B,A)
+    // pixel (0,0) -> value 0 -> offset 0*4 = 0
+    assertMemoryByte("pixel (0,0)", memory, 0, 0);      // R=0
+    // pixel (1,0) -> value 1 -> offset 1*4 = 4
+    assertMemoryByte("pixel (1,0)", memory, 4, 1);      // R=1
+    // pixel (2,0) -> value 2 -> offset 2*4 = 8
+    assertMemoryByte("pixel (2,0)", memory, 8, 2);      // R=2
 
-    assertMemoryByte("pixel (0,1)", memory, 100, 1);
-    assertMemoryByte("pixel (1,1)", memory, 101, 2);
-    assertMemoryByte("pixel (2,1)", memory, 102, 3);
+    // pixel (0,1) -> offset (0 + 1*100)*4 = 400, value = 1
+    assertMemoryByte("pixel (0,1)", memory, 400, 1);
+    // pixel (1,1) -> offset (1 + 1*100)*4 = 404, value = 2
+    assertMemoryByte("pixel (1,1)", memory, 404, 2);
+    // pixel (2,1) -> offset (2 + 1*100)*4 = 408, value = 3
+    assertMemoryByte("pixel (2,1)", memory, 408, 3);
   }
 
   console.log("\n🎉 ALL V1 TESTS PASSED\n");

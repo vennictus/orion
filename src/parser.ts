@@ -16,6 +16,7 @@ import {
   BreakStatementNode,
   ContinueStatementNode,
   SetPixelStatementNode,
+  SetPixelRGBStatementNode,
   UnaryExpressionNode,
   CallExpressionNode,
   FunctionDeclarationNode,
@@ -463,6 +464,25 @@ export const parse: Parser = (tokens) => {
     };
   };
 
+  const parseSetPixelRGBStatement = (): SetPixelRGBStatementNode => {
+    eat("setpixelrgb");
+
+    const x = parseExpression();
+    const y = parseExpression();
+    const r = parseExpression();
+    const g = parseExpression();
+    const b = parseExpression();
+
+    return {
+      type: "setpixelrgbStatement",
+      x,
+      y,
+      r,
+      g,
+      b,
+    };
+  };
+
   /* ---------- FUNCTION DECLARATION ---------- */
 
   const parseFunctionDeclaration = (): FunctionDeclarationNode => {
@@ -544,6 +564,8 @@ export const parse: Parser = (tokens) => {
           return parseReturnStatement();
         case "setpixel":
           return parseSetPixelStatement();
+        case "setpixelrgb":
+          return parseSetPixelRGBStatement();
       }
     }
 
