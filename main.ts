@@ -1,6 +1,18 @@
 import { runtime } from "./src/runtime";
 
+// FUNCTION TEST: Try changing this!
 const source = `
+fn square(x)
+  return (x * x)
+end
+
+fn distance(x, y)
+  return (square(x) + square(y))
+end
+
+print square(5)
+print distance(3, 4)
+
 let y = 0
 while (y < 100)
   let x = 0

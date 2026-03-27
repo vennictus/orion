@@ -8,7 +8,8 @@ export interface Parser {
 
 /* ---------- ROOT ---------- */
 
-export type Program = StatementNode[];
+export type TopLevelNode = StatementNode | FunctionDeclarationNode;
+export type Program = TopLevelNode[];
 
 /* ---------- BASE NODE ---------- */
 
@@ -27,13 +28,17 @@ export type StatementNode =
   | WhileStatementNode
   | BreakStatementNode
   | ContinueStatementNode
-  | SetPixelStatementNode; // 
+  | SetPixelStatementNode
+  | ReturnStatementNode;
+
 /* ---------- EXPRESSIONS ---------- */
 
 export type ExpressionNode =
   | NumberLiteralNode
   | BinaryExpressionNode
-  | IdentifierNode;
+  | IdentifierNode
+  | UnaryExpressionNode
+  | CallExpressionNode;
 
 /* ---------- STATEMENT NODES ---------- */
 
@@ -80,13 +85,27 @@ export interface ContinueStatementNode extends ProgramNode {
   type: "continueStatement";
 }
 
-/* ---------- SETPIXEL STATEMENT (ADDED, NOTHING REMOVED) ---------- */
+export interface ReturnStatementNode extends ProgramNode {
+  type: "returnStatement";
+  value: ExpressionNode;
+}
+
+/* ---------- SETPIXEL STATEMENT ---------- */
 
 export interface SetPixelStatementNode extends ProgramNode {
   type: "setpixelStatement";
   x: ExpressionNode;
   y: ExpressionNode;
   value: ExpressionNode;
+}
+
+/* ---------- FUNCTION DECLARATION ---------- */
+
+export interface FunctionDeclarationNode extends ProgramNode {
+  type: "functionDeclaration";
+  name: string;
+  params: string[];
+  body: StatementNode[];
 }
 
 /* ---------- EXPRESSION NODES ---------- */
@@ -108,6 +127,18 @@ export interface BinaryExpressionNode extends ProgramNode {
   operator: Operator;
 }
 
+export interface UnaryExpressionNode extends ProgramNode {
+  type: "unaryExpression";
+  operator: "not" | "-";
+  operand: ExpressionNode;
+}
+
+export interface CallExpressionNode extends ProgramNode {
+  type: "callExpression";
+  name: string;
+  args: ExpressionNode[];
+}
+
 /* ---------- OPERATORS ---------- */
 
 export type Operator =
@@ -116,6 +147,10 @@ export type Operator =
   | "*"
   | "/"
   | "=="
+  | "!="
   | "<"
   | ">"
-  | "&&";
+  | "<="
+  | ">="
+  | "&&"
+  | "||";

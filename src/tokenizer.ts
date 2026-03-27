@@ -4,7 +4,7 @@ import { Token, Tokenizer, TokenType, Matcher } from "./types/tokenizer";
 
 /* ---------- LANGUAGE DEFINITIONS ---------- */
 
-// supported keywords
+// supported keywords (order doesn't matter)
 export const keywords = [
   "print",
   "let",
@@ -14,12 +14,17 @@ export const keywords = [
   "while",
   "break",
   "continue",
-  "setpixel", 
+  "setpixel",
+  "for",
+  "in",
+  "not",
+  "fn",
+  "return",
 ];
 
 
-// supported operators
-export const operators = ["+", "-", "*", "/", "==", "<", ">", "&&"];
+// supported operators (order matters: longer operators first)
+export const operators = ["+", "-", "*", "/", "==", "!=", "<=", ">=", "<", ">", "&&", "||", ".."];
 
 // identifiers: variable names
 const identifierRegex = "^[a-zA-Z_][a-zA-Z0-9_]*";
@@ -33,16 +38,18 @@ const escapeRegEx = (text: string) =>
   text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 
 /**
- * Returns a token if regex matches at the current index
+ * Returns a token if regex matches at the current index, with line/char tracking
  */
 const regexMatcher =
   (regex: string, type: TokenType): Matcher =>
-  (input: string, index: number) => {
+  (input: string, index: number, line: number, char: number) => {
     const match = input.substring(index).match(regex);
     return (
       match && {
         type,
         value: match[0],
+        line,
+        char,
       }
     );
   };
@@ -60,8 +67,8 @@ const matchers: Matcher[] = [
 
   regexMatcher(`^(${operators.map(escapeRegEx).join("|")})`, "operator"),
 
-  // grouping tokens: ( ) { } =
-  regexMatcher("^[(){}=]", "parens"),
+  // grouping tokens: ( ) { } = ,
+  regexMatcher("^[(){}=,]", "parens"),
 
   regexMatcher("^\\s+", "whitespace"),
 ];
@@ -71,15 +78,17 @@ const matchers: Matcher[] = [
 export const tokenize: Tokenizer = (input) => {
   const tokens: Token[] = [];
   let index = 0;
+  let line = 1;
+  let char = 1;
 
   while (index < input.length) {
     const matches = matchers
-      .map((m) => m(input, index))
+      .map((m) => m(input, index, line, char))
       .filter(Boolean) as Token[];
 
     if (matches.length === 0) {
       throw new Error(
-        `Unexpected token '${input[index]}' at position ${index}`
+        `Unexpected token '${input[index]}' at line ${line}, column ${char}`
       );
     }
 
@@ -87,6 +96,16 @@ export const tokenize: Tokenizer = (input) => {
 
     if (match.type !== "whitespace") {
       tokens.push(match);
+    }
+
+    // Update line/char tracking
+    for (const c of match.value) {
+      if (c === '\n') {
+        line++;
+        char = 1;
+      } else {
+        char++;
+      }
     }
 
     index += match.value.length;

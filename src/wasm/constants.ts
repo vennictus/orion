@@ -30,6 +30,7 @@ export enum Opcode {
   /* control */
   block = 0x02,
   loop = 0x03,
+  return_ = 0x0f,
   br = 0x0c,
   br_if = 0x0d,
   call = 0x10,
@@ -46,11 +47,15 @@ export enum Opcode {
   /* comparisons */
   i32_eqz = 0x45,
   f32_eq = 0x5b,
+  f32_ne = 0x5c,
   f32_lt = 0x5d,
   f32_gt = 0x5e,
+  f32_le = 0x5f,
+  f32_ge = 0x60,
 
   /* logical */
   i32_and = 0x71,
+  i32_or = 0x72,
 
   /* arithmetic */
   i32_add = 0x6a,

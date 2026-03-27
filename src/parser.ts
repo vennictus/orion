@@ -16,11 +16,17 @@ import {
   BreakStatementNode,
   ContinueStatementNode,
   SetPixelStatementNode,
+  UnaryExpressionNode,
+  CallExpressionNode,
+  FunctionDeclarationNode,
+  ReturnStatementNode,
+  TopLevelNode,
 } from "./types/parser";
 
 export class ParserError extends Error {
   constructor(message: string, public token?: Token) {
-    super(message);
+    const loc = token ? ` at line ${token.line}, column ${token.char}` : "";
+    super(message + loc);
   }
 }
 
@@ -48,6 +54,28 @@ export const parse: Parser = (tokens) => {
       throw new ParserError("Unexpected end of input");
     }
 
+    // -------- UNARY NEGATION: -expr --------
+    if (current.type === "operator" && current.value === "-") {
+      eat("-");
+      const operand = parseExpression();
+      return {
+        type: "unaryExpression",
+        operator: "-",
+        operand,
+      } as UnaryExpressionNode;
+    }
+
+    // -------- NOT OPERATOR: not expr --------
+    if (current.type === "keyword" && current.value === "not") {
+      eat("not");
+      const operand = parseExpression();
+      return {
+        type: "unaryExpression",
+        operator: "not",
+        operand,
+      } as UnaryExpressionNode;
+    }
+
     // -------- NUMBER --------
     if (current.type === "number") {
       const value = Number(current.value);
@@ -58,10 +86,47 @@ export const parse: Parser = (tokens) => {
       };
     }
 
-    // -------- IDENTIFIER --------
+    // -------- IDENTIFIER OR FUNCTION CALL --------
     if (current.type === "identifier") {
       const name = current.value;
+      const identToken = current;
       eat();
+      
+      // Check if this is a function call: identifier immediately followed by (
+      // Use char position to detect adjacency (no whitespace between)
+      const nextToken = current as Token | undefined;
+      if (nextToken && nextToken.type === "parens" && nextToken.value === "(") {
+        // Only treat as call if ( is adjacent to identifier (no whitespace)
+        if (nextToken.char === identToken.char + identToken.value.length) {
+          eat("(");
+          const args: ExpressionNode[] = [];
+          
+          // Parse comma-separated arguments
+          let tok = current as Token | undefined;
+          while (tok && !(tok.type === "parens" && tok.value === ")")) {
+            args.push(parseExpression());
+            tok = current as Token | undefined;
+            // Skip comma if present
+            if (tok && tok.type === "parens" && tok.value === ",") {
+              eat(",");
+              tok = current as Token | undefined;
+            }
+          }
+          
+          const closeToken = current as Token | undefined;
+          if (!closeToken || closeToken.value !== ")") {
+            throw new ParserError("Expected ')' after function arguments", closeToken);
+          }
+          eat(")");
+          
+          return {
+            type: "callExpression",
+            name,
+            args,
+          } as CallExpressionNode;
+        }
+      }
+      
       return {
         type: "identifier",
         name,
@@ -195,6 +260,15 @@ export const parse: Parser = (tokens) => {
     };
   };
 
+  const parseReturnStatement = (): ReturnStatementNode => {
+    eat("return");
+    const value = parseExpression();
+    return {
+      type: "returnStatement",
+      value,
+    };
+  };
+
   const parseBlockStatement = (): BlockStatementNode => {
     eat("{");
 
@@ -306,7 +380,73 @@ export const parse: Parser = (tokens) => {
     };
   };
 
-  //Added setpixel statement parser
+  /* ---------- FOR LOOP (DESUGARS TO WHILE) ---------- */
+
+  const parseForStatement = (): BlockStatementNode => {
+    eat("for");
+
+    const loopVarToken = current as Token | undefined;
+    if (!loopVarToken || loopVarToken.type !== "identifier") {
+      throw new ParserError("Expected loop variable name", loopVarToken);
+    }
+    const loopVar = loopVarToken.value;
+    eat();
+
+    const inToken = current as Token | undefined;
+    if (!inToken || inToken.value !== "in") {
+      throw new ParserError("Expected 'in'", inToken);
+    }
+    eat("in");
+
+    const startExpr = parseExpression();
+
+    const dotDotToken = current as Token | undefined;
+    if (!dotDotToken || dotDotToken.value !== "..") {
+      throw new ParserError("Expected '..'", dotDotToken);
+    }
+    eat("..");
+
+    const endExpr = parseExpression();
+
+    const body = parseStatementList(["end"]);
+    eat("end");
+
+    // Desugar: for i in start..end → let i = start; while (i < end) body; i = (i + 1) end
+    return {
+      type: "blockStatement",
+      body: [
+        {
+          type: "variableDeclaration",
+          name: loopVar,
+          initializer: startExpr,
+        },
+        {
+          type: "whileStatement",
+          condition: {
+            type: "binaryExpression",
+            left: { type: "identifier", name: loopVar },
+            right: endExpr,
+            operator: "<",
+          },
+          body: [
+            ...body,
+            {
+              type: "assignmentStatement",
+              name: loopVar,
+              value: {
+                type: "binaryExpression",
+                left: { type: "identifier", name: loopVar },
+                right: { type: "numberLiteral", value: 1 },
+                operator: "+",
+              },
+            },
+          ],
+        },
+      ],
+    } as BlockStatementNode;
+  };
+
+  /* ---------- SETPIXEL STATEMENT ---------- */
 
   const parseSetPixelStatement = (): SetPixelStatementNode => {
     eat("setpixel");
@@ -320,6 +460,54 @@ export const parse: Parser = (tokens) => {
       x,
       y,
       value,
+    };
+  };
+
+  /* ---------- FUNCTION DECLARATION ---------- */
+
+  const parseFunctionDeclaration = (): FunctionDeclarationNode => {
+    eat("fn");
+
+    const nameToken = current as Token | undefined;
+    if (!nameToken || nameToken.type !== "identifier") {
+      throw new ParserError("Expected function name", nameToken);
+    }
+    const name = nameToken.value;
+    eat();
+
+    const openParen = current as Token | undefined;
+    if (!openParen || openParen.value !== "(") {
+      throw new ParserError("Expected '(' after function name", openParen);
+    }
+    eat("(");
+
+    const params: string[] = [];
+    let paramToken = current as Token | undefined;
+    while (paramToken && paramToken.type === "identifier") {
+      params.push(paramToken.value);
+      eat();
+      paramToken = current as Token | undefined;
+      // Skip comma if present
+      if (paramToken && paramToken.type === "parens" && paramToken.value === ",") {
+        eat(",");
+        paramToken = current as Token | undefined;
+      }
+    }
+
+    const closeParen = current as Token | undefined;
+    if (!closeParen || closeParen.value !== ")") {
+      throw new ParserError("Expected ')' after parameters", closeParen);
+    }
+    eat(")");
+
+    const body = parseStatementList(["end"]);
+    eat("end");
+
+    return {
+      type: "functionDeclaration",
+      name,
+      params,
+      body,
     };
   };
 
@@ -346,12 +534,14 @@ export const parse: Parser = (tokens) => {
           return parseIfStatement();
         case "while":
           return parseWhileStatement();
+        case "for":
+          return parseForStatement();
         case "break":
           return parseBreakStatement();
         case "continue":
           return parseContinueStatement();
-
-        //Added setpixel case
+        case "return":
+          return parseReturnStatement();
         case "setpixel":
           return parseSetPixelStatement();
       }
@@ -373,7 +563,11 @@ export const parse: Parser = (tokens) => {
   const program: Program = [];
 
   while (current) {
-    program.push(parseStatement());
+    if (current.type === "keyword" && current.value === "fn") {
+      program.push(parseFunctionDeclaration());
+    } else {
+      program.push(parseStatement());
+    }
   }
 
   return program;

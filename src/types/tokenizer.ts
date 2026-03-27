@@ -11,8 +11,8 @@ export type TokenType =
 export interface Token {
   type: TokenType;
   value: string;
-  line?: number;
-  char?: number;
+  line: number;
+  char: number;
 }
 
 export interface Tokenizer {
@@ -20,5 +20,5 @@ export interface Tokenizer {
 }
 
 export interface Matcher {
-  (input: string, index: number): Token | null;
+  (input: string, index: number, line: number, char: number): Token | null;
 }

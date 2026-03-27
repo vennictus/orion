@@ -254,7 +254,113 @@ async function run() {
     assertMemoryByte("pixel (2,1)", memory, 102, 3);
   }
 
-  console.log("\n🎉 ALL V1 TESTS PASSED");
+  console.log("\n🎉 ALL V1 TESTS PASSED\n");
+
+  /* ===== PHASE 2 TESTS ===== */
+  
+  // New comparison operators
+  await test("not-equal true", "print (4 != 5)", [1]);
+  await test("not-equal false", "print (5 != 5)", [0]);
+  await test("less-or-equal true", "print (3 <= 3)", [1]);
+  await test("less-or-equal false", "print (4 <= 3)", [0]);
+  await test("greater-or-equal true", "print (5 >= 5)", [1]);
+  await test("greater-or-equal false", "print (3 >= 5)", [0]);
+  await test("logical OR true-false", "print (1 || 0)", [1]);
+  await test("logical OR false-true", "print (0 || 1)", [1]);
+  await test("logical OR false-false", "print (0 || 0)", [0]);
+
+  // Unary negation
+  await test("unary negation", "print -5", [-5]);
+  await test("unary negation expr", "print -(3 + 2)", [-5]);
+
+  // Not operator
+  await test("not true", "print not 1", [0]);
+  await test("not false", "print not 0", [1]);
+
+  // For loop
+  {
+    const out = await runProgram(`
+      for i in 0..3
+        print i
+      end
+    `);
+    assertEqual("for loop", out, [0, 1, 2]);
+  }
+
+  console.log("🎉 ALL PHASE 2 TESTS PASSED\n");
+
+  /* ===== PHASE 3 TESTS: FUNCTIONS ===== */
+
+  // Simple function
+  {
+    const out = await runProgram(`
+      fn double(x)
+        return (x * 2)
+      end
+      
+      print double(5)
+    `);
+    assertEqual("simple function", out, [10]);
+  }
+
+  // Function with multiple params
+  {
+    const out = await runProgram(`
+      fn add(a, b)
+        return (a + b)
+      end
+      
+      print add(3, 7)
+    `);
+    assertEqual("function with two params", out, [10]);
+  }
+
+  // Multiple function calls
+  {
+    const out = await runProgram(`
+      fn square(x)
+        return (x * x)
+      end
+      
+      print square(3)
+      print square(4)
+    `);
+    assertEqual("multiple function calls", out, [9, 16]);
+  }
+
+  // Nested function calls
+  {
+    const out = await runProgram(`
+      fn double(x)
+        return (x * 2)
+      end
+      
+      fn quadruple(x)
+        return double(double(x))
+      end
+      
+      print quadruple(3)
+    `);
+    assertEqual("nested function calls", out, [12]);
+  }
+
+  // Recursive function (factorial)
+  {
+    const out = await runProgram(`
+      fn factorial(n)
+        if (n <= 1)
+          return 1
+        end
+        return (n * factorial((n - 1)))
+      end
+      
+      print factorial(5)
+    `);
+    assertEqual("recursive factorial", out, [120]);
+  }
+
+  console.log("🎉 ALL PHASE 3 TESTS PASSED\n");
+  console.log("✅ ALL TESTS PASSED");
 }
 
 run().catch(err => {
