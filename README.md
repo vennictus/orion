@@ -14,37 +14,82 @@
                Compiles directly to WebAssembly
 ```
 
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/WebAssembly-654FF0?style=flat&logo=webassembly&logoColor=white" alt="WebAssembly" />
+  <img src="https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="MIT License" />
+</p>
+
+<p align="center">
+  <a href="#v1--core-compiler">v1.0 Core</a> |
+  <a href="#v2--extended-language--playground">v2.0 Extended</a> |
+  <a href="#quick-start">Quick Start</a> |
+  <a href="GUIDE.md">Full Guide</a> |
+  <a href="PLAYGROUND.md">Playground Docs</a>
+</p>
+
 ---
 
 ## Overview
 
-ORION is a compiler written in TypeScript that compiles a custom programming language, ASTRA, directly to WebAssembly (WASM).
+**ORION** is a compiler written in TypeScript that compiles a custom programming language, **ASTRA**, directly to WebAssembly binary bytecode.
 
-ASTRA is a deliberately low-level, expression-based language designed to make execution semantics explicit and observable. The language and compiler were designed together with a single goal: to understand how real programs are lowered into WebAssembly and executed as native bytecode.
-
-The compiler emits raw WebAssembly binary. There is no interpreter, no intermediate WAT representation, and no JavaScript execution once compilation completes. After emission, the program runs entirely inside the WebAssembly virtual machine.
+ASTRA is a deliberately low-level, expression-based language designed to make execution semantics explicit and observable. The compiler emits raw WebAssembly binary — no interpreter, no intermediate WAT representation, no JavaScript execution after compilation. The program runs entirely inside the WebAssembly virtual machine.
 
 ---
 
-## Motivation
+## Versions
 
-WebAssembly is widely used as a compilation target, yet its execution model is rarely explored directly. Most developers rely on mature toolchains that abstract away details such as stack behavior, control-flow construction, and linear memory access.
+### v1.0 | Core Compiler
 
-This project exists to remove that abstraction barrier.
+The foundational compiler with essential language features.
 
-ORION was built to answer concrete questions:
+| Feature | Description |
+|---------|-------------|
+| **Tokenizer** | Regex-based lexer with keyword/identifier/operator recognition |
+| **Parser** | Recursive descent parser producing typed AST |
+| **Emitter** | Direct WebAssembly binary generation |
+| **Expressions** | Arithmetic (`+`, `-`, `*`, `/`), comparisons (`==`, `<`, `>`), logical (`&&`) |
+| **Variables** | Declaration, assignment, lexical scoping with shadowing |
+| **Control Flow** | `if`/`else`/`end`, `while`/`end`, `break`, `continue` |
+| **Graphics** | `setpixel x y value` for grayscale canvas output |
+| **I/O** | `print` via host-imported function |
 
-* How are structured loops encoded in WebAssembly bytecode?
-* How does a stack machine evaluate nested expressions deterministically?
-* How are lexical scopes mapped to local variable indices?
-* How do break and continue translate into structured control flow?
-* How is linear memory addressed, written to, and shared with the host?
+### v2.0 | Extended Language + Playground
 
-Rather than prioritizing feature breadth, the focus is placed on correctness, determinism, and clarity of execution.
+Significant language extensions and an interactive development environment.
+
+| Feature | Description |
+|---------|-------------|
+| **Functions** | User-defined functions with parameters, return values, recursion |
+| **For Loops** | `for i in start..end` syntax with automatic desugaring |
+| **Operators** | `!=`, `<=`, `>=`, `\|\|`, unary `-`, `not` |
+| **RGB Colors** | `setpixelrgb x y r g b` for full-color rendering |
+| **Dynamic Canvas** | Configurable dimensions (50-500px), dynamic memory allocation |
+| **Playground** | Monaco editor, syntax highlighting, live metrics, example library |
+| **Bug Fixes** | All 10 original known bugs resolved |
 
 ---
 
-## Compiler architecture
+## Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Run test suite (45 tests)
+npm test
+
+# Start playground
+npm run dev
+```
+
+Open **http://localhost:3000** for the interactive playground.
+
+---
+
+## Compiler Architecture
 
 ```
 ASTRA source code
@@ -61,7 +106,7 @@ ASTRA source code
         |
         v
 +--------------+
-|   Compiler   |   AST -> WebAssembly bytecode
+|   Emitter    |   AST -> WebAssembly bytecode (two-pass for functions)
 +--------------+
         |
         v
@@ -71,140 +116,155 @@ ASTRA source code
  Native execution
 ```
 
-The compiler follows a traditional multi-stage pipeline, but critically there is no runtime interpreter. The AST exists only at compile time. After compilation, execution is performed entirely by the WebAssembly engine.
+The compiler follows a traditional multi-stage pipeline. The AST exists only at compile time. After compilation, execution is performed entirely by the WebAssembly engine.
 
 ---
 
-## The ASTRA language
+## The ASTRA Language
 
-ASTRA is a minimal, expression-based language designed around explicit execution semantics rather than abstraction convenience.
+ASTRA is a minimal, expression-based language designed around explicit execution semantics.
 
-All values are numeric. Control flow is structured. Scoping is lexical and deterministic. There is no hidden runtime behavior.
-
-### Language features
-
-* Arithmetic expressions: +, -, *, /
-* Comparison operators: ==, <, >
-* Logical conjunction: &&
-* Variable declarations and reassignment
-* Lexical scoping with correct shadowing behavior
-* Explicit block scopes
-* Conditional execution via if / else / end
-* Looping via while / end
-* Structured control flow using break and continue
-* Deterministic linear memory access
-* Host-imported functions for I/O
-* Direct compilation to WebAssembly
-
-### Example program
+### Syntax Reference
 
 ```astra
-let y = 0
-while (y < 3)
-  let x = 0
-  while (x < 3)
-    setpixel x y (x + y)
-    x = (x + 1)
-  end
-  y = (y + 1)
+// Variables
+let x = 5
+let y = (x + 10)
+x = 42
+
+// Control flow
+if (x > 0)
+  print x
+else
+  print 0
 end
+
+while (x < 100)
+  x = (x + 1)
+end
+
+for i in 0..10
+  print i
+end
+
+// Functions (v2.0)
+fn square(x)
+  return (x * x)
+end
+
+fn factorial(n)
+  if (n <= 1)
+    return 1
+  end
+  return (n * factorial((n - 1)))
+end
+
+// Graphics
+setpixel x y 128              // grayscale
+setpixelrgb x y 255 128 0     // RGB color
+
+// Output
+print square(7)
 ```
 
-This example exercises nested loops, scoped variables, arithmetic evaluation, branching, and memory writes, all of which are lowered directly into WebAssembly instructions.
+### Operators
+
+| Category | Operators |
+|----------|-----------|
+| Arithmetic | `+`  `-`  `*`  `/` |
+| Comparison | `==`  `!=`  `<`  `>`  `<=`  `>=` |
+| Logical | `&&`  `\|\|`  `not` |
+| Unary | `-x` (negation) |
 
 ---
 
-## Mandelbrot validation
+## Mandelbrot Validation
 
 The compiler is validated using a complete Mandelbrot set renderer written entirely in ASTRA.
 
 Mandelbrot is used as a validation workload rather than a visual demo. Rendering it correctly requires:
 
-* deeply nested loops
-* heavy floating-point arithmetic
-* precise conditional branching
-* strict stack discipline
-* exact linear memory indexing
+- Deeply nested loops
+- Heavy floating-point arithmetic
+- Precise conditional branching
+- Strict stack discipline
+- Exact linear memory indexing
 
-Any flaw in expression evaluation, control flow construction, or memory addressing produces visible corruption in the output. The fact that the image renders correctly provides strong evidence that the compiler's execution model is correct.
-
-## Mandelbrot validation
+Any flaw in expression evaluation, control flow construction, or memory addressing produces visible corruption in the output.
 
 ![Mandelbrot set rendered by ASTRA via ORION](assets/mandelBrotSet.png)
 
-
 ---
 
-## Project structure
+## Project Structure
 
 ```
 ORION/
 ├── src/
 │   ├── types/
-│   │   ├── compiler.ts     Compiler interfaces and contracts
 │   │   ├── parser.ts       AST node type definitions
-│   │   ├── runtime.ts      Runtime and host-facing types
-│   │   └── tokenizer.ts   Token definitions
+│   │   └── tokenizer.ts    Token definitions
 │   │
 │   ├── wasm/
-│   │   ├── constants.ts   WASM opcodes, section identifiers, value types
-│   │   ├── encoding.ts    LEB128, IEEE754, and vector encoders
-│   │   └── module.ts      WebAssembly module construction
+│   │   ├── constants.ts    WASM opcodes, section IDs, value types
+│   │   ├── encoding.ts     LEB128, IEEE754, vector encoders
+│   │   └── module.ts       WebAssembly module construction + emitter
 │   │
-│   ├── compiler.ts        AST to WASM code generation
-│   ├── parser.ts          Recursive descent parser
-│   ├── tokenizer.ts       Lexer implementation
-│   ├── traverse.ts        AST traversal utilities
-│   ├── runtime.ts         WebAssembly host bindings
-│   └── index.ts           Public compiler entry point
+│   ├── tokenizer.ts        Lexer implementation
+│   ├── parser.ts           Recursive descent parser
+│   ├── runtime.ts          WebAssembly host bindings
+│   └── index.ts            Test suite (45 tests)
 │
-├── index.html              Browser harness and canvas output
-├── main.ts                 Mandelbrot runner
+├── index.html              Playground UI
+├── playground.ts           Playground logic + Monaco integration
+├── main.ts                 Standalone Mandelbrot runner
 │
-├── package.json
-├── package-lock.json
-├── tsconfig.json
-├── vite.config.ts
-└── .gitignore
+├── GUIDE.md                Complete implementation guide
+├── PLAYGROUND.md           Playground documentation
+├── CHANGELOG.md            Version history
+└── README.md               This file
 ```
 
 ---
 
-## Design principles
+## Documentation
 
-* Minimal surface area to reduce semantic ambiguity
-* Explicit execution semantics
-* No implicit runtime services
-* Correctness prioritized over expressiveness
-* WebAssembly treated as a real compilation target
+| Document | Description |
+|----------|-------------|
+| [`GUIDE.md`](GUIDE.md) | Complete 2700+ line implementation guide — every concept explained |
+| [`PLAYGROUND.md`](PLAYGROUND.md) | Playground usage, controls, examples, troubleshooting |
+| [`CHANGELOG.md`](CHANGELOG.md) | Version history and changes |
+
+---
+
+## Design Principles
+
+- **Minimal surface area** — reduce semantic ambiguity
+- **Explicit execution** — no hidden runtime behavior
+- **Correctness over expressiveness** — every feature maps cleanly to WASM
+- **WebAssembly as real target** — not an afterthought
 
 ASTRA is intentionally constrained so that every supported feature can be reasoned about down to its WebAssembly representation.
 
 ---
 
-## Status
+## Building for Production
 
-* Compiler pipeline complete
-* Core language complete
-* Mandelbrot renderer complete
-* Functions intentionally deferred
+```bash
+npm run build
+```
 
-Functions are a deliberate design decision rather than an incomplete feature.
+Outputs static files to `dist/`. Deploy to any static host (Vercel, Netlify, GitHub Pages).
 
 ---
 
-## Running the project
+## License
 
-```
-npm install
-npm run dev
-```
-
-Open the browser and run the Mandelbrot demo via the provided harness.
+MIT
 
 ---
 
-## Closing note
+## Closing Note
 
 This project was built to understand how programs actually execute at the WebAssembly level, rather than how high-level languages present themselves.
 
