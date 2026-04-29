@@ -75,14 +75,17 @@ Significant language extensions and an interactive development environment.
 # Install dependencies
 npm install
 
-# Run test suite (45 tests)
+# Run test suite (51 checks)
 npm test
+
+# Type-check the compiler
+npm run typecheck
 
 # Start playground
 npm run dev
 ```
 
-Open **http://localhost:3000** for the interactive playground.
+Open **http://localhost:5173** for the interactive playground.
 
 ---
 
@@ -210,7 +213,7 @@ ORION/
 │   ├── tokenizer.ts        Lexer implementation
 │   ├── parser.ts           Recursive descent parser
 │   ├── runtime.ts          WebAssembly host bindings
-│   └── index.ts            Test suite (45 tests)
+│   └── index.ts            Test suite (51 checks)
 │
 ├── index.html              Playground UI
 ├── playground.ts           Playground logic + Monaco integration

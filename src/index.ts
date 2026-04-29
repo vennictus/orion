@@ -1,4 +1,6 @@
 import { compile } from "../src/compiler";
+import { parse } from "../src/parser";
+import { tokenize } from "../src/tokenizer";
 
 /**
  * Runs a single Astra program and captures printed output
@@ -82,6 +84,38 @@ function assertMemoryByte(
   console.log(`✅ ${name}`);
 }
 
+function assertTokenValues(name: string, source: string, expected: string[]) {
+  const actual = tokenize(source).map((token) => token.value);
+  const ok =
+    actual.length === expected.length &&
+    actual.every((value, index) => value === expected[index]);
+
+  if (!ok) {
+    throw new Error(
+      `❌ ${name}\nExpected: ${JSON.stringify(expected)}\nGot:      ${JSON.stringify(actual)}`
+    );
+  }
+
+  console.log(`✅ ${name}`);
+}
+
+function assertThrows(name: string, fn: () => void, messagePart: string) {
+  try {
+    fn();
+  } catch (err: any) {
+    if (String(err.message).includes(messagePart)) {
+      console.log(`✅ ${name}`);
+      return;
+    }
+
+    throw new Error(
+      `❌ ${name}\nExpected error containing: ${messagePart}\nGot: ${err.message}`
+    );
+  }
+
+  throw new Error(`❌ ${name}\nExpected function to throw`);
+}
+
 async function test(name: string, source: string, expected: number[]) {
   const out = await runProgram(source);
   assertEqual(name, out, expected);
@@ -91,6 +125,31 @@ async function test(name: string, source: string, expected: number[]) {
 
 async function run() {
   console.log("Astra torture test suite\n");
+
+  /* ===== TOKENIZER / PARSER ===== */
+  assertTokenValues("tokenizer skips comments", "let x = 1 // ignored\nprint x", [
+    "let",
+    "x",
+    "=",
+    "1",
+    "print",
+    "x",
+  ]);
+
+  assertTokenValues("keyword prefixes remain identifiers", "let letter = 2", [
+    "let",
+    "letter",
+    "=",
+    "2",
+  ]);
+
+  assertThrows("tokenizer reports source location", () => tokenize("let x = @"), "line 1, column 9");
+
+  assertThrows(
+    "parser reports missing paren location",
+    () => parse(tokenize("print (1 + 2")),
+    "Expected ')'"
+  );
 
   /* ===== CORE ===== */
   await test("single print", "print 5", [5]);
@@ -147,6 +206,31 @@ async function run() {
       print a
     `,
     [6, 1, 1]
+  );
+
+  await test(
+    "mixed i32 and f32 locals",
+    `
+      let whole = 3
+      let frac = 2.5
+      print (whole + frac)
+      print whole
+    `,
+    [5.5, 3]
+  );
+
+  await test(
+    "assignment converts to declared local type",
+    `
+      let whole = 1
+      whole = 2.9
+      print whole
+
+      let frac = 1.5
+      frac = 2
+      print frac
+    `,
+    [2, 2]
   );
 
   /* ===== IF / ELSE ===== */

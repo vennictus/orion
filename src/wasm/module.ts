@@ -78,7 +78,12 @@ const binaryOpcode: Record<string, { opcode: Opcode; result: ValueType }> = {
 
 /* ---------- SCOPE STACK ---------- */
 
-type Scope = Map<string, number>;
+interface SymbolInfo {
+  index: number;
+  type: ValueType;
+}
+
+type Scope = Map<string, SymbolInfo>;
 
 /* ---------- LOOP STACK ---------- */
 
@@ -92,6 +97,7 @@ type LoopContext = {
 interface CompilerState {
   scopes: Scope[];
   localCount: number;
+  localTypes: ValueType[];
   controlDepth: number;
   loopStack: LoopContext[];
   functions: Map<string, FunctionInfo>;
@@ -102,6 +108,7 @@ function createState(): CompilerState {
   return {
     scopes: [],
     localCount: 0,
+    localTypes: [],
     controlDepth: 0,
     loopStack: [],
     functions: new Map(),
@@ -112,6 +119,7 @@ function createState(): CompilerState {
 function resetForFunction(state: CompilerState, paramCount: number) {
   state.scopes = [];
   state.localCount = paramCount;
+  state.localTypes = [];
   state.controlDepth = 0;
   state.loopStack = [];
   state.inFunction = true;
@@ -125,13 +133,14 @@ function exitScope(state: CompilerState) {
   state.scopes.pop();
 }
 
-function declareSymbol(state: CompilerState, name: string): number {
+function declareSymbol(state: CompilerState, name: string, type: ValueType): number {
   const index = state.localCount++;
-  state.scopes[state.scopes.length - 1].set(name, index);
+  state.localTypes.push(type);
+  state.scopes[state.scopes.length - 1].set(name, { index, type });
   return index;
 }
 
-function resolveSymbol(state: CompilerState, name: string): number {
+function resolveSymbol(state: CompilerState, name: string): SymbolInfo {
   for (let i = state.scopes.length - 1; i >= 0; i--) {
     const scope = state.scopes[i];
     if (scope.has(name)) {
@@ -139,6 +148,34 @@ function resolveSymbol(state: CompilerState, name: string): number {
     }
   }
   throw new Error(`Undefined variable '${name}'`);
+}
+
+function emitConversion(code: number[], from: ValueType, to: ValueType) {
+  if (from === to) return;
+  if (from === "i32" && to === "f32") {
+    code.push(Opcode.f32_convert_i32_s);
+    return;
+  }
+  if (from === "f32" && to === "i32") {
+    code.push(Opcode.i32_trunc_f32_s);
+    return;
+  }
+  throw new Error(`Cannot convert ${from} to ${to}`);
+}
+
+function emitToBool(code: number[], type: ValueType) {
+  if (type === "i32") return;
+  code.push(Opcode.f32_const);
+  code.push(...f32(0));
+  code.push(Opcode.f32_eq);
+  code.push(Opcode.i32_eqz);
+}
+
+function encodeLocalDeclarations(types: ValueType[]): number[][] {
+  return types.map((type) => [
+    ...unsignedLEB128(1),
+    type === "f32" ? ValType.f32 : ValType.i32,
+  ]);
 }
  
 
@@ -159,10 +196,10 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
     }
 
     case "identifier": {
-      const index = resolveSymbol(state, node.name);
+      const symbol = resolveSymbol(state, node.name);
       code.push(Opcode.get_local);
-      code.push(...unsignedLEB128(index));
-      return "f32";
+      code.push(...unsignedLEB128(symbol.index));
+      return symbol.type;
     }
 
     case "unaryExpression": {
@@ -171,20 +208,12 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
         code.push(Opcode.f32_const);
         code.push(...f32(0));
         const operandType = emitExpression(node.operand, code, state);
-        if (operandType === "i32") {
-          code.push(Opcode.f32_convert_i32_s);
-        }
+        emitConversion(code, operandType, "f32");
         code.push(Opcode.f32_sub);
         return "f32";
       } else if (node.operator === "not") {
         const operandType = emitExpression(node.operand, code, state);
-        if (operandType === "f32") {
-          // f32 → i32 truthiness
-          code.push(Opcode.f32_const);
-          code.push(...f32(0));
-          code.push(Opcode.f32_eq);
-          code.push(Opcode.i32_eqz);
-        }
+        emitToBool(code, operandType);
         code.push(Opcode.i32_eqz);
         return "i32";
       }
@@ -200,9 +229,7 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
       // Emit arguments
       for (const arg of node.args) {
         const argType = emitExpression(arg, code, state);
-        if (argType === "i32") {
-          code.push(Opcode.f32_convert_i32_s);
-        }
+        emitConversion(code, argType, "f32");
       }
       
       // Call function
@@ -233,27 +260,15 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
 
       const leftType = emitExpression(node.left, code, state);
       if ((isArithmetic || isComparison) && leftType === "i32") {
-        code.push(Opcode.f32_convert_i32_s);
+        emitConversion(code, leftType, "f32");
       }
-      // For logical &&/||, convert f32 to i32 (truthiness check)
-      if (isLogical && leftType === "f32") {
-        code.push(Opcode.f32_const);
-        code.push(...f32(0));
-        code.push(Opcode.f32_eq);
-        code.push(Opcode.i32_eqz); // f32 != 0.0 → i32
-      }
+      if (isLogical) emitToBool(code, leftType);
 
       const rightType = emitExpression(node.right, code, state);
       if ((isArithmetic || isComparison) && rightType === "i32") {
-        code.push(Opcode.f32_convert_i32_s);
+        emitConversion(code, rightType, "f32");
       }
-      // For logical &&/||, convert f32 to i32 (truthiness check)
-      if (isLogical && rightType === "f32") {
-        code.push(Opcode.f32_const);
-        code.push(...f32(0));
-        code.push(Opcode.f32_eq);
-        code.push(Opcode.i32_eqz); // f32 != 0.0 → i32
-      }
+      if (isLogical) emitToBool(code, rightType);
 
       code.push(entry.opcode);
       return entry.result;
@@ -277,26 +292,20 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
     case "variableDeclaration": {
       const valueType = emitExpression(stmt.initializer, code, state);
 
-      if (valueType === "i32") {
-        code.push(Opcode.f32_convert_i32_s);
-      }
-
-      const index = declareSymbol(state, stmt.name);
+      const index = declareSymbol(state, stmt.name, valueType);
       code.push(Opcode.set_local);
       code.push(...unsignedLEB128(index));
       break;
     }
 
     case "assignmentStatement": {
-      const index = resolveSymbol(state, stmt.name);
+      const symbol = resolveSymbol(state, stmt.name);
       const valueType = emitExpression(stmt.value, code, state);
 
-      if (valueType === "i32") {
-        code.push(Opcode.f32_convert_i32_s);
-      }
+      emitConversion(code, valueType, symbol.type);
 
       code.push(Opcode.set_local);
-      code.push(...unsignedLEB128(index));
+      code.push(...unsignedLEB128(symbol.index));
       break;
     }
 
@@ -456,9 +465,7 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
     /* ---------- RETURN ---------- */
     case "returnStatement": {
       const valueType = emitExpression(stmt.value, code, state);
-      if (valueType === "i32") {
-        code.push(Opcode.f32_convert_i32_s);
-      }
+      emitConversion(code, valueType, "f32");
       code.push(Opcode.return_);
       break;
     }
@@ -601,6 +608,7 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
   // Pass 2a: Emit run function body
   state.scopes = [];
   state.localCount = 0;
+  state.localTypes = [];
   state.controlDepth = 0;
   state.loopStack = [];
   state.inFunction = false;
@@ -612,10 +620,10 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
   }
 
   exitScope(state);
-  const runLocalCount = state.localCount;
+  const runLocalTypes = [...state.localTypes];
 
   // Pass 2b: Emit user function bodies
-  const userFuncBodies: { code: number[]; localCount: number; paramCount: number }[] = [];
+  const userFuncBodies: { code: number[]; localTypes: ValueType[]; paramCount: number }[] = [];
   
   for (const func of functions) {
     const funcInfo = state.functions.get(func.name)!;
@@ -626,7 +634,7 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
     
     // Register params as locals (indices 0..paramCount-1)
     for (let i = 0; i < funcInfo.params.length; i++) {
-      state.scopes[0].set(funcInfo.params[i], i);
+      state.scopes[0].set(funcInfo.params[i], { index: i, type: "f32" });
     }
     
     const funcCode: number[] = [];
@@ -645,7 +653,7 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
     
     userFuncBodies.push({
       code: funcCode,
-      localCount: state.localCount - funcInfo.paramCount, // additional locals beyond params
+      localTypes: [...state.localTypes],
       paramCount: funcInfo.paramCount,
     });
   }
@@ -739,10 +747,7 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
   );
 
   // Build code section
-  const runLocals =
-    runLocalCount === 0
-      ? []
-      : [[...unsignedLEB128(runLocalCount), ValType.f32]];
+  const runLocals = encodeLocalDeclarations(runLocalTypes);
 
   const runBody = [
     ...encodeVector(runLocals),
@@ -755,10 +760,7 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
   ];
 
   for (const funcBody of userFuncBodies) {
-    const locals =
-      funcBody.localCount === 0
-        ? []
-        : [[...unsignedLEB128(funcBody.localCount), ValType.f32]];
+    const locals = encodeLocalDeclarations(funcBody.localTypes);
     
     const body = [
       ...encodeVector(locals),
