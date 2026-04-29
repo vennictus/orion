@@ -209,28 +209,27 @@ async function run() {
   );
 
   await test(
-    "mixed i32 and f32 locals",
+    "integer initializers can later hold fractional values",
     `
       let whole = 3
       let frac = 2.5
       print (whole + frac)
+      whole = 2.75
       print whole
     `,
-    [5.5, 3]
+    [5.5, 2.75]
   );
 
   await test(
-    "assignment converts to declared local type",
+    "comparison values stored in locals remain usable as booleans",
     `
-      let whole = 1
-      whole = 2.9
-      print whole
-
-      let frac = 1.5
-      frac = 2
-      print frac
+      let flag = (3 < 5)
+      if (flag)
+        print 1
+      end
+      print (flag && 1)
     `,
-    [2, 2]
+    [1, 1]
   );
 
   /* ===== IF / ELSE ===== */

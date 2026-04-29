@@ -171,11 +171,26 @@ end`,
         code: `// Checkerboard Pattern
 for y in 0..100
   for x in 0..100
-    let cellX = (x / 10)
-    let cellY = (y / 10)
+    let cellX = 0
+    let tx = x
+    while (tx >= 10)
+      tx = (tx - 10)
+      cellX = (cellX + 1)
+    end
+
+    let cellY = 0
+    let ty = y
+    while (ty >= 10)
+      ty = (ty - 10)
+      cellY = (cellY + 1)
+    end
+
     let sum = (cellX + cellY)
-    let half = (sum / 2)
-    let isEven = ((sum - (half * 2)) < 1)
+    let isEven = 1
+    while (sum > 0)
+      isEven = (1 - isEven)
+      sum = (sum - 1)
+    end
     
     if (isEven)
       setpixelrgb x y 249 115 22   // Orange
@@ -193,9 +208,17 @@ end`,
 for y in 0..100
   for x in 0..100
     let sum = (x + y)
-    let band = (sum / 10)
-    let half = (band / 2)
-    let isEven = ((band - (half * 2)) < 1)
+    let band = 0
+    while (sum >= 10)
+      sum = (sum - 10)
+      band = (band + 1)
+    end
+
+    let isEven = 1
+    while (band > 0)
+      isEven = (1 - isEven)
+      band = (band - 1)
+    end
     
     if (isEven)
       setpixelrgb x y 34 211 153   // Mint
@@ -247,9 +270,17 @@ let cy = 50
 for y in 0..100
   for x in 0..100
     let dist = distance(x, y, cx, cy)
-    let ring = ((dist / 50) * 20)
-    let half = (ring / 2)
-    let isEven = ((ring - (half * 2)) < 1)
+    let ring = 0
+    while (dist >= 400)
+      dist = (dist - 400)
+      ring = (ring + 1)
+    end
+
+    let isEven = 1
+    while (ring > 0)
+      isEven = (1 - isEven)
+      ring = (ring - 1)
+    end
     
     if (isEven)
       setpixelrgb x y 249 115 22   // Orange
@@ -272,9 +303,21 @@ for y in 0..128
     let isHole = 0
     
     while (tx > 0)
-      // Check if both lowest "bits" are 1
-      let rx = (tx / 2)
-      let ry = (ty / 2)
+      // Divide by 2 with explicit truncation
+      let rx = 0
+      let xRest = tx
+      while (xRest >= 2)
+        xRest = (xRest - 2)
+        rx = (rx + 1)
+      end
+
+      let ry = 0
+      let yRest = ty
+      while (yRest >= 2)
+        yRest = (yRest - 2)
+        ry = (ry + 1)
+      end
+
       let bx = (tx - (rx * 2))
       let by = (ty - (ry * 2))
       
@@ -301,10 +344,15 @@ end`,
         code: `// Crosshatch Pattern
 for y in 0..100
   for x in 0..100
-    let mx = (x / 8)
-    let my = (y / 8)
-    let rx = (x - (mx * 8))
-    let ry = (y - (my * 8))
+    let rx = x
+    while (rx >= 8)
+      rx = (rx - 8)
+    end
+
+    let ry = y
+    while (ry >= 8)
+      ry = (ry - 8)
+    end
     
     if ((rx < 2) || (ry < 2))
       setpixelrgb x y 249 115 22   // Orange lines

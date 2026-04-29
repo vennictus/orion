@@ -258,17 +258,24 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
 
       const isLogical = operator === "&&" || operator === "||";
 
+      if (isLogical) {
+        const leftType = emitExpression(node.left, code, state);
+        emitToBool(code, leftType);
+        const rightType = emitExpression(node.right, code, state);
+        emitToBool(code, rightType);
+        code.push(entry.opcode);
+        return entry.result;
+      }
+
       const leftType = emitExpression(node.left, code, state);
       if ((isArithmetic || isComparison) && leftType === "i32") {
         emitConversion(code, leftType, "f32");
       }
-      if (isLogical) emitToBool(code, leftType);
 
       const rightType = emitExpression(node.right, code, state);
       if ((isArithmetic || isComparison) && rightType === "i32") {
         emitConversion(code, rightType, "f32");
       }
-      if (isLogical) emitToBool(code, rightType);
 
       code.push(entry.opcode);
       return entry.result;
@@ -291,8 +298,9 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
 
     case "variableDeclaration": {
       const valueType = emitExpression(stmt.initializer, code, state);
+      emitConversion(code, valueType, "f32");
 
-      const index = declareSymbol(state, stmt.name, valueType);
+      const index = declareSymbol(state, stmt.name, "f32");
       code.push(Opcode.set_local);
       code.push(...unsignedLEB128(index));
       break;
