@@ -1,157 +1,56 @@
-# ORION - A WebAssembly Compiler
+# ORION
 
-# ASTRA - A Low-level Language for Deterministic Execution
+A compiler you can look inside.
 
-```
- ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗         █████╗ ███████╗████████╗██████╗  █████╗
-██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║        ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗
-██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║   +    ███████║███████╗   ██║   ██████╔╝███████║
-██║   ██║██╔══██╗██║██║   ██║██║╚██╗██║        ██╔══██║╚════██║   ██║   ██╔══██╗██╔══██║
-╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║        ██║  ██║███████║   ██║   ██║  ██║██║  ██║
- ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝        ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
-      ORION (Compiler)                               ASTRA (Language)
+ORION is a TypeScript compiler for **ASTRA**, a small numeric language. It emits
+WebAssembly binary bytes directly: source → tokens → AST → WASM. The playground
+lets you run a program, see its pixels, and inspect the executable it produced.
 
-               Compiles directly to WebAssembly
-```
+## Run locally
 
-<p align="center">
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/WebAssembly-654FF0?style=flat&logo=webassembly&logoColor=white" alt="WebAssembly" />
-  <img src="https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="MIT License" />
-</p>
-
-<p align="center">
-  <a href="#v1--core-compiler">v1.0 Core</a> |
-  <a href="#v2--extended-language--playground">v2.0 Extended</a> |
-</p>
-
----
-
-## Overview
-
-**ORION** is a compiler written in TypeScript that compiles a custom programming language, **ASTRA**, directly to WebAssembly binary bytecode.
-
-ASTRA is a deliberately low-level, expression-based language designed to make execution semantics explicit and observable. The compiler emits raw WebAssembly binary — no interpreter, no intermediate WAT representation, no JavaScript execution after compilation. The program runs entirely inside the WebAssembly virtual machine.
-
----
-
-## Versions
-
-### v1.0 | Core Compiler
-
-The foundational compiler with essential language features.
-
-| Feature | Description |
-|---------|-------------|
-| **Tokenizer** | Regex-based lexer with keyword/identifier/operator recognition |
-| **Parser** | Recursive descent parser producing typed AST |
-| **Emitter** | Direct WebAssembly binary generation |
-| **Expressions** | Arithmetic (`+`, `-`, `*`, `/`), comparisons (`==`, `<`, `>`), logical (`&&`) |
-| **Variables** | Declaration, assignment, lexical scoping with shadowing |
-| **Control Flow** | `if`/`else`/`end`, `while`/`end`, `break`, `continue` |
-| **Graphics** | `setpixel x y value` for grayscale canvas output |
-| **I/O** | `print` via host-imported function |
-
-### v2.0 | Extended Language + Playground
-
-Significant language extensions and an interactive development environment.
-
-| Feature | Description |
-|---------|-------------|
-| **Functions** | User-defined functions with parameters, return values, recursion |
-| **For Loops** | `for i in start..end` syntax with automatic desugaring |
-| **Operators** | `!=`, `<=`, `>=`, `\|\|`, unary `-`, `not` |
-| **RGB Colors** | `setpixelrgb x y r g b` for full-color rendering |
-| **Dynamic Canvas** | Configurable dimensions (50-500px), dynamic memory allocation |
-| **Playground** | Monaco editor, syntax highlighting, live metrics, example library |
-| **Bug Fixes** | All 10 original known bugs resolved |
-
----
-
-## Quick Start
-
-```bash
-# Install dependencies
+```sh
 npm install
-
-# Run test suite (51 checks)
-npm test
-
-# Type-check the compiler
-npm run typecheck
-
-# Start playground
 npm run dev
 ```
 
-Open **http://localhost:5173** for the interactive playground.
+Open [localhost:5173](http://localhost:5173). Requires Node.js 20.19+ or 22.12+.
 
----
-
-## Compiler Architecture
-
-```
-ASTRA source code
-        |
-        v
-+--------------+
-|  Tokenizer   |   Source text -> tokens
-+--------------+
-        |
-        v
-+--------------+
-|   Parser     |   Tokens -> abstract syntax tree
-+--------------+
-        |
-        v
-+--------------+
-|   Emitter    |   AST -> WebAssembly bytecode (two-pass for functions)
-+--------------+
-        |
-        v
- WebAssembly module
-        |
-        v
- Native execution
+```sh
+npm test             # Core, regression, examples, conformance, inspector, worker tests
+npm run typecheck    # Compiler, tests, browser UI, workers, and Vite configuration
+npm run build        # Static production output in dist/
+npm run preview      # Preview the production build locally
 ```
 
-The compiler follows a traditional multi-stage pipeline. The AST exists only at compile time. After compilation, execution is performed entirely by the WebAssembly engine.
+## The playground
 
----
+- **Output:** an RGBA canvas, numeric console output, and separate compile,
+  WebAssembly-validation, and execution timings.
+- **Lab:** source-located tokens, an expandable compiler AST, decoded instructions
+  for each function, and a sectioned hexadecimal view of the actual WASM binary.
+- **Linked inspection:** click a token to select its source; click an instruction
+  to highlight its encoded bytes. Download the `.wasm` module or save the canvas.
+- **Guided examples:** arithmetic, nested loop branches, and recursive factorial.
+  Twelve additional examples cover fractals, patterns, shapes, and functions.
+- **Isolated execution:** compilation and execution run in a disposable worker.
+  Stop cancels it; an eight-second deadline also applies. Console output is capped
+  at 1,000 values.
+- **Local workspace:** source and canvas size are saved in browser localStorage.
+  Share creates a URL with source in its fragment. Shared and restored programs
+  compile on opening, but do not execute automatically.
 
-## The ASTRA Language
+The interface pairs deep cream and orange with serif headings and a matching
+charcoal dark theme. The theme toggle follows your system initially and remembers
+your choice. Small info buttons explain each graphics/functions example without
+running it. A grouped program list sits beside the editor; on phones, a native selector keeps it compact.
+“Take a closer look” inspects your current source and preserves the last output.
+No external font or analytics
+service is loaded. Source is not uploaded by the app; copying a share link is an
+explicit way to disclose its contents to recipients.
 
-ASTRA is a minimal, expression-based language designed around explicit execution semantics.
-
-### Syntax Reference
+## ASTRA in a minute
 
 ```astra
-// Variables
-let x = 5
-let y = (x + 10)
-x = 42
-
-// Control flow
-if (x > 0)
-  print x
-else
-  print 0
-end
-
-while (x < 100)
-  x = (x + 1)
-end
-
-for i in 0..10
-  print i
-end
-
-// Functions (v2.0)
-fn square(x)
-  return (x * x)
-end
-
 fn factorial(n)
   if (n <= 1)
     return 1
@@ -159,102 +58,105 @@ fn factorial(n)
   return (n * factorial((n - 1)))
 end
 
-// Graphics
-setpixel x y 128              // grayscale
-setpixelrgb x y 255 128 0     // RGB color
+print factorial(5)
 
-// Output
-print square(7)
+for y in 0..100
+  for x in 0..100
+    setpixelrgb x y (x * 2) (y * 2) 180
+  end
+end
 ```
 
-### Operators
+ASTRA supports variables, assignment, lexical shadowing, arithmetic, comparisons,
+logical operators, unary negation, `not`, `if`/`else`, `while`, `for`, `break`,
+`continue`, numeric functions, and recursion. Comments start with `//`.
 
-| Category | Operators |
-|----------|-----------|
-| Arithmetic | `+`  `-`  `*`  `/` |
-| Comparison | `==`  `!=`  `<`  `>`  `<=`  `>=` |
-| Logical | `&&`  `\|\|`  `not` |
-| Unary | `-x` (negation) |
+Binary expressions use parentheses: `(x + 3)`. Additional grouping is accepted.
+Function calls require the opening parenthesis adjacent to the name: `f(1, 2)`.
+Arguments and parameters require commas, without trailing commas. `for i in 0..n`
+starts at zero, steps by one, and excludes n; its end expression is evaluated on
+**every condition check**. `continue` executes the generated increment.
 
----
+Variables, parameters, arithmetic, and function results use **f32**, with its normal
+rounding and precision limits. Signed-i32-range integral literals initially use
+`i32.const`; larger finite literals use `f32.const`. Comparison and logical results
+are 0 or 1. Numeric conditions use zero/nonzero truthiness. Logical `&&` and `||`
+**evaluate both operands**. Functions falling through return 0. Functions cannot
+capture top-level variables. Duplicate bindings in one scope, wrong call arity,
+invalid return context, and missing delimiters are rejected.
 
-## Mandelbrot Validation
+## Graphics
 
-The compiler is validated using a complete Mandelbrot set renderer written entirely in ASTRA.
-
-Mandelbrot is used as a validation workload rather than a visual demo. Rendering it correctly requires:
-
-- Deeply nested loops
-- Heavy floating-point arithmetic
-- Precise conditional branching
-- Strict stack discipline
-- Exact linear memory indexing
-
-Any flaw in expression evaluation, control flow construction, or memory addressing produces visible corruption in the output.
-
-![Mandelbrot set rendered by ASTRA via ORION](assets/mandelBrotSet.png)
-
----
-
-## Project Structure
-
-```
-ORION/
-├── src/
-│   ├── types/
-│   │   ├── parser.ts       AST node type definitions
-│   │   └── tokenizer.ts    Token definitions
-│   │
-│   ├── wasm/
-│   │   ├── constants.ts    WASM opcodes, section IDs, value types
-│   │   ├── encoding.ts     LEB128, IEEE754, vector encoders
-│   │   └── module.ts       WebAssembly module construction + emitter
-│   │
-│   ├── tokenizer.ts        Lexer implementation
-│   ├── parser.ts           Recursive descent parser
-│   ├── runtime.ts          WebAssembly host bindings
-│   └── index.ts            Test suite (51 checks)
-│
-├── index.html              Playground UI
-├── playground.ts           Playground logic + Monaco integration
-├── main.ts                 Standalone Mandelbrot runner
-│
-├── GUIDE.md                Complete implementation guide
-├── PLAYGROUND.md           Playground documentation
-├── CHANGELOG.md            Version history
-└── README.md               This file
+```astra
+setpixel 0 0 128
+setpixelrgb 1 0 255 100 40
 ```
 
+Pixels live at `(y * width + x) * 4`, in red, green, blue, alpha order. Alpha is 255
+for written pixels; unwritten pixels are transparent. Coordinates and channel
+values truncate toward zero. Coordinates outside the canvas are ignored; channels
+store their low eight bits, so values outside 0–255 wrap rather than clamp.
+Non-finite or out-of-i32-range coordinate/channel conversions trap. Operands are
+evaluated once, left to right, before the coordinate bounds check.
 
-## Design Principles
+The playground and compiler accept integer dimensions from 1 to 500. Each compiled
+module has its own canvas dimensions and enough memory, rounded to 64 KiB pages.
 
-- **Minimal surface area** — reduce semantic ambiguity
-- **Explicit execution** — no hidden runtime behavior
-- **Correctness over expressiveness** — every feature maps cleanly to WASM
-- **WebAssembly as real target** — not an afterthought
+## Architecture
 
-ASTRA is intentionally constrained so that every supported feature can be reasoned about down to its WebAssembly representation.
-
----
-
-## Building for Production
-
-```bash
-npm run build
+```text
+ASTRA → tokenize → parse → emitter → WebAssembly binary
+                                      ↓
+                              inspectBinary → Lab
+                                      ↓
+                              WebAssembly engine → output
 ```
 
-Outputs static files to `dist/`. Deploy to any static host (Vercel, Netlify, GitHub Pages).
+`for` lowers to a scoped declaration and a while node with a separate update.
+The emitter registers functions before generating bodies, enabling forward calls
+and recursion. It writes module sections and instruction bytes without an external
+WAT compiler. The Lab decoder reads those actual bytes, rather than reconstructing
+an approximation from the AST.
 
----
+| File | Purpose |
+| --- | --- |
+| `src/tokenizer.ts`, `src/parser.ts` | Frontend and source-located syntax errors |
+| `src/wasm/module.ts` | Typed AST lowering and binary emission |
+| `src/wasm/encoding.ts`, `constants.ts` | Binary encodings and opcodes |
+| `src/wasm/inspect.ts` | Decoder for ORION's emitted instruction subset |
+| `src/compiler.ts`, `src/runtime.ts` | Public compile and low-level tick APIs |
+| `playground.ts`, `playground/styles.css` | Browser interface |
+| `playground/runner.worker.ts` | Compilation and execution isolation |
+| `playground/examples.ts` | Examples and guided Lab lessons |
+| `tests/conformance.json` | Portable behavior fixtures for future implementations |
+
+See [GUIDE.md](GUIDE.md), [ARCHITECTURE.md](ARCHITECTURE.md), and
+[PLAYGROUND.md](PLAYGROUND.md) for implementation and usage details.
+[BLOG.md](BLOG.md) is an editable article draft; [POST.md](POST.md) contains a
+short release post draft. Nothing has been published automatically.
+
+## Limits
+
+ORION is an educational compiler, not an optimizing production toolchain. There
+are no arrays, strings, general heap allocation, closures, or source-level stepping.
+The AST panel shows the lowered compiler AST. The binary decoder supports ORION's
+instruction subset, not arbitrary WASM modules. Source is limited to 100,000
+characters; inspection views also bound their rendered rows. Stack exhaustion,
+floating-point overflow, and invalid numeric conversions can still trap or produce
+non-finite arithmetic results.
+
+The low-level runtime's tick is synchronous and has no deadline; applications must
+isolate it themselves. The playground provides that isolation. Timing figures are
+per-run measurements, not benchmark claims.
+
+## Publish later
+
+`npm run build` produces `dist/`, ready for a static host. It needs no backend or
+secrets. Netlify Drop accepts the folder; Git-based hosting uses build command
+`npm run build` and publish directory `dist`. Use HTTPS for clipboard sharing.
+The default Vite base path assumes hosting at an origin root; configure `base` for
+subpath hosting such as a GitHub Pages project URL.
 
 ## License
 
-MIT
-
----
-
-## Closing Note
-
-This project was built to understand how programs actually execute at the WebAssembly level, rather than how high-level languages present themselves.
-
-ORION and ASTRA are intended to be read, studied, and extended by anyone interested in compilers, execution models, and WebAssembly internals.
+MIT. Copyright 2026 Ishjaap Singh.
