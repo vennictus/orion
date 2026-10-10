@@ -46,6 +46,8 @@ export enum Opcode {
 
   /* comparisons */
   i32_eqz = 0x45,
+  i32_lt_s = 0x48,
+  i32_ge_s = 0x4e,
   f32_eq = 0x5b,
   f32_ne = 0x5c,
   f32_lt = 0x5d,

@@ -11,7 +11,7 @@ import {
 
 import { f32, unsignedLEB128, signedLEB128, encodeString } from "./encoding";
 
-import { Program, FunctionDeclarationNode, TopLevelNode } from "../types/parser";
+import { Program, FunctionDeclarationNode, TopLevelNode, StatementNode, ExpressionNode } from "../types/parser";
 
 /* ---------- WASM HEADERS ---------- */
 
@@ -20,8 +20,8 @@ const VERSION = [0x01, 0x00, 0x00, 0x00];
 
 /* ---------- SHARED CONSTANTS ---------- */
 
-export let CANVAS_WIDTH = 100;
-export let CANVAS_HEIGHT = 100;
+export const CANVAS_WIDTH = 100;
+export const CANVAS_HEIGHT = 100;
 
 /* ---------- EMITTER OPTIONS ---------- */
 
@@ -55,7 +55,7 @@ interface FunctionInfo {
   index: number;
   paramCount: number;
   params: string[];
-  body: any[];
+  body: StatementNode[];
 }
 
 /* ---------- OPCODE MAP ---------- */
@@ -102,6 +102,8 @@ interface CompilerState {
   loopStack: LoopContext[];
   functions: Map<string, FunctionInfo>;
   inFunction: boolean;
+  width: number;
+  height: number;
 }
 
 function createState(): CompilerState {
@@ -113,6 +115,8 @@ function createState(): CompilerState {
     loopStack: [],
     functions: new Map(),
     inFunction: false,
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
   };
 }
 
@@ -133,10 +137,17 @@ function exitScope(state: CompilerState) {
   state.scopes.pop();
 }
 
-function declareSymbol(state: CompilerState, name: string, type: ValueType): number {
+function allocateLocal(state: CompilerState, type: ValueType): number {
   const index = state.localCount++;
   state.localTypes.push(type);
-  state.scopes[state.scopes.length - 1].set(name, { index, type });
+  return index;
+}
+
+function declareSymbol(state: CompilerState, name: string, type: ValueType): number {
+  const scope = state.scopes[state.scopes.length - 1];
+  if (scope.has(name)) throw new Error(`Duplicate variable '${name}' in the same scope`);
+  const index = allocateLocal(state, type);
+  scope.set(name, { index, type });
   return index;
 }
 
@@ -164,7 +175,10 @@ function emitConversion(code: number[], from: ValueType, to: ValueType) {
 }
 
 function emitToBool(code: number[], type: ValueType) {
-  if (type === "i32") return;
+  if (type === "i32") {
+    code.push(Opcode.i32_eqz, Opcode.i32_eqz);
+    return;
+  }
   code.push(Opcode.f32_const);
   code.push(...f32(0));
   code.push(Opcode.f32_eq);
@@ -181,10 +195,10 @@ function encodeLocalDeclarations(types: ValueType[]): number[][] {
 
 /* ---------- EXPRESSION EMITTER ---------- */
 
-function emitExpression(node: any, code: number[], state: CompilerState): ValueType {
+function emitExpression(node: ExpressionNode, code: number[], state: CompilerState): ValueType {
   switch (node.type) {
     case "numberLiteral": {
-      if (Number.isInteger(node.value)) {
+      if (Number.isInteger(node.value) && node.value >= -2147483648 && node.value <= 2147483647) {
         code.push(Opcode.i32_const);
         code.push(...signedLEB128(node.value));
         return "i32";
@@ -226,6 +240,7 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
         throw new Error(`Undefined function '${node.name}'`);
       }
       
+      if (node.args.length !== funcInfo.paramCount) throw new Error(`Function '${node.name}' expects ${funcInfo.paramCount} arguments, got ${node.args.length}`);
       // Emit arguments
       for (const arg of node.args) {
         const argType = emitExpression(arg, code, state);
@@ -241,6 +256,7 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
     case "binaryExpression": {
       const operator = node.operator;
       const entry = binaryOpcode[operator];
+      if (!entry) throw new Error(`Unknown operator '${operator}'`);
 
       const isArithmetic =
         operator === "+" ||
@@ -282,11 +298,11 @@ function emitExpression(node: any, code: number[], state: CompilerState): ValueT
     }
   }
 
-  throw new Error(`Unknown expression type '${node.type}'`);
+  throw new Error("Unknown expression");
 }
 
 /* ---------- STATEMENT EMITTER ---------- */
-function emitStatement(stmt: any, code: number[], state: CompilerState) {
+function emitStatement(stmt: StatementNode, code: number[], state: CompilerState) {
   switch (stmt.type) {
 
     case "printStatement": {
@@ -350,7 +366,7 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
 
       code.push(Opcode.i32_eqz);
       code.push(Opcode.br_if);
-      code.push(...signedLEB128(0));
+      code.push(...unsignedLEB128(0));
 
       enterScope(state);
       for (const inner of stmt.thenBlock) {
@@ -359,7 +375,7 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
       exitScope(state);
 
       code.push(Opcode.br);
-      code.push(...signedLEB128(1));
+      code.push(...unsignedLEB128(1));
 
       code.push(Opcode.end);
       state.controlDepth--;
@@ -380,28 +396,6 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
     /* ---------- WHILE STATEMENT ---------- */
     case "whileStatement": {
 
-      /* --- EMPTY BODY --- */
-      if (stmt.body.length === 0) {
-        code.push(Opcode.block);
-        code.push(BlockType.void);
-        state.controlDepth++;
-
-        const condType = emitExpression(stmt.condition, code, state);
-        if (condType !== "i32") {
-          throw new Error("while condition must be i32");
-        }
-
-        code.push(Opcode.i32_eqz);
-        code.push(Opcode.br_if);
-        code.push(...signedLEB128(0));
-
-        code.push(Opcode.end);
-        state.controlDepth--;
-        break;
-      }
-
-      /* --- NORMAL LOOP --- */
-
       // block (break target)
       code.push(Opcode.block);
       code.push(BlockType.void);
@@ -419,22 +413,28 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
       });
 
       const condType = emitExpression(stmt.condition, code, state);
-      if (condType !== "i32") {
-        throw new Error("while condition must be i32");
-      }
+      emitToBool(code, condType);
 
       code.push(Opcode.i32_eqz);
       code.push(Opcode.br_if);
-      code.push(...signedLEB128(1));
+      code.push(...unsignedLEB128(1));
 
-      enterScope(state);
-      for (const inner of stmt.body) {
-        emitStatement(inner, code, state);
+      if (stmt.update) {
+        code.push(Opcode.block, BlockType.void);
+        state.controlDepth++;
+        state.loopStack[state.loopStack.length - 1].loopDepth = state.controlDepth;
       }
+      enterScope(state);
+      for (const inner of stmt.body) emitStatement(inner, code, state);
       exitScope(state);
+      if (stmt.update) {
+        code.push(Opcode.end);
+        state.controlDepth--;
+        for (const update of stmt.update) emitStatement(update, code, state);
+      }
 
       code.push(Opcode.br);
-      code.push(...signedLEB128(0));
+      code.push(...unsignedLEB128(0));
 
       state.loopStack.pop();
 
@@ -454,7 +454,7 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
 
       const ctx = state.loopStack[state.loopStack.length - 1];
       code.push(Opcode.br);
-      code.push(...signedLEB128(state.controlDepth - ctx.blockDepth));
+      code.push(...unsignedLEB128(state.controlDepth - ctx.blockDepth));
       break;
     }
 
@@ -466,133 +466,74 @@ function emitStatement(stmt: any, code: number[], state: CompilerState) {
 
       const ctx = state.loopStack[state.loopStack.length - 1];
       code.push(Opcode.br);
-      code.push(...signedLEB128(state.controlDepth - ctx.loopDepth));
+      code.push(...unsignedLEB128(state.controlDepth - ctx.loopDepth));
       break;
     }
 
     /* ---------- RETURN ---------- */
     case "returnStatement": {
+      if (!state.inFunction) throw new Error("return used outside of function");
       const valueType = emitExpression(stmt.value, code, state);
       emitConversion(code, valueType, "f32");
       code.push(Opcode.return_);
       break;
     }
 
-    case "setpixelStatement": {
-      // Calculate base offset: (y * WIDTH + x) * 4
-      const xType = emitExpression(stmt.x, code, state);
-      if (xType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType = emitExpression(stmt.y, code, state);
-      if (yType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-
-      // value for R
-      const vType = emitExpression(stmt.value, code, state);
-      if (vType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_store8, 0x00, 0x00);
-
-      // G (recalc offset + 1)
-      const xType2 = emitExpression(stmt.x, code, state);
-      if (xType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType2 = emitExpression(stmt.y, code, state);
-      if (yType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-      const vType2 = emitExpression(stmt.value, code, state);
-      if (vType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_store8, 0x00, 0x01);
-
-      // B (recalc offset + 2)
-      const xType3 = emitExpression(stmt.x, code, state);
-      if (xType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType3 = emitExpression(stmt.y, code, state);
-      if (yType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-      const vType3 = emitExpression(stmt.value, code, state);
-      if (vType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_store8, 0x00, 0x02);
-
-      // A = 255 (recalc offset + 3)
-      const xType4 = emitExpression(stmt.x, code, state);
-      if (xType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType4 = emitExpression(stmt.y, code, state);
-      if (yType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-      code.push(Opcode.i32_const, ...signedLEB128(255));
-      code.push(Opcode.i32_store8, 0x00, 0x03);
-
-      break;
-    }
-
+    case "setpixelStatement":
     case "setpixelrgbStatement": {
-      // Calculate base offset: (y * WIDTH + x) * 4
-      const xType = emitExpression(stmt.x, code, state);
-      if (xType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType = emitExpression(stmt.y, code, state);
-      if (yType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-
-      // R value
-      const rType = emitExpression(stmt.r, code, state);
-      if (rType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_store8, 0x00, 0x00);
-
-      // G (recalc offset)
-      const xType2 = emitExpression(stmt.x, code, state);
-      if (xType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType2 = emitExpression(stmt.y, code, state);
-      if (yType2 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-      const gType = emitExpression(stmt.g, code, state);
-      if (gType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_store8, 0x00, 0x01);
-
-      // B (recalc offset)
-      const xType3 = emitExpression(stmt.x, code, state);
-      if (xType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType3 = emitExpression(stmt.y, code, state);
-      if (yType3 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-      const bType = emitExpression(stmt.b, code, state);
-      if (bType === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_store8, 0x00, 0x02);
-
-      // A = 255
-      const xType4 = emitExpression(stmt.x, code, state);
-      if (xType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      const yType4 = emitExpression(stmt.y, code, state);
-      if (yType4 === "f32") code.push(Opcode.i32_trunc_f32_s);
-      code.push(Opcode.i32_const, ...signedLEB128(CANVAS_WIDTH), Opcode.i32_mul, Opcode.i32_add);
-      code.push(Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
-      code.push(Opcode.i32_const, ...signedLEB128(255));
-      code.push(Opcode.i32_store8, 0x00, 0x03);
-
+      // Evaluate operands once, left to right; cache values before bounds checks.
+      const operands = stmt.type === "setpixelStatement"
+        ? [stmt.x, stmt.y, stmt.value]
+        : [stmt.x, stmt.y, stmt.r, stmt.g, stmt.b];
+      const locals = operands.map((operand) => {
+        const type = emitExpression(operand, code, state);
+        emitConversion(code, type, "i32");
+        const index = allocateLocal(state, "i32");
+        code.push(Opcode.set_local, ...unsignedLEB128(index));
+        return index;
+      });
+      const get = (index: number) => code.push(Opcode.get_local, ...unsignedLEB128(index));
+      code.push(Opcode.block, BlockType.void);
+      for (const [index, limit] of [[locals[0], state.width], [locals[1], state.height]]) {
+        get(index);
+        code.push(Opcode.i32_const, ...signedLEB128(0), Opcode.i32_lt_s, Opcode.br_if, 0);
+        get(index);
+        code.push(Opcode.i32_const, ...signedLEB128(limit), Opcode.i32_ge_s, Opcode.br_if, 0);
+      }
+      const address = allocateLocal(state, "i32");
+      get(locals[1]);
+      code.push(Opcode.i32_const, ...signedLEB128(state.width), Opcode.i32_mul);
+      get(locals[0]);
+      code.push(Opcode.i32_add, Opcode.i32_const, ...signedLEB128(4), Opcode.i32_mul);
+      code.push(Opcode.set_local, ...unsignedLEB128(address));
+      for (let channel = 0; channel < 4; channel++) {
+        get(address);
+        if (channel === 3) code.push(Opcode.i32_const, ...signedLEB128(255));
+        else get(stmt.type === "setpixelStatement" ? locals[2] : locals[channel + 2]);
+        code.push(Opcode.i32_store8, 0, channel);
+      }
+      code.push(Opcode.end);
       break;
     }
 
     default:
-      throw new Error(`Unknown statement ${stmt.type}`);
+      throw new Error("Unknown statement");
   }
 }
 
 /* ---------- EMITTER ---------- */
 
 export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array {
-  // Set canvas dimensions
-  CANVAS_WIDTH = options.width ?? 100;
-  CANVAS_HEIGHT = options.height ?? 100;
-  
   const state = createState();
+  state.width = options.width ?? CANVAS_WIDTH;
+  state.height = options.height ?? CANVAS_HEIGHT;
+  for (const dimension of [state.width, state.height]) {
+    if (!Number.isInteger(dimension) || dimension < 1 || dimension > 500) throw new Error("Canvas dimensions must be integers between 1 and 500");
+  }
   
   // Separate function declarations from statements
   const functions: FunctionDeclarationNode[] = [];
-  const statements: TopLevelNode[] = [];
+  const statements: StatementNode[] = [];
   
   for (const node of ast) {
     if (node.type === "functionDeclaration") {
@@ -605,6 +546,8 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
   // Pass 1: Register all functions
   let nextFuncIndex = RUN_FUNC_INDEX + 1; // run is at RUN_FUNC_INDEX
   for (const func of functions) {
+    if (state.functions.has(func.name)) throw new Error(`Duplicate function '${func.name}'`);
+    if (new Set(func.params).size !== func.params.length) throw new Error(`Duplicate parameter in '${func.name}'`);
     state.functions.set(func.name, {
       index: nextFuncIndex++,
       paramCount: func.params.length,
@@ -650,13 +593,9 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
       emitStatement(stmt, funcCode, state);
     }
     
-    // If function doesn't end with return, add default return 0
-    if (funcCode.length === 0 || funcCode[funcCode.length - 1] !== Opcode.return_) {
-      funcCode.push(Opcode.f32_const);
-      funcCode.push(...f32(0));
-      funcCode.push(Opcode.return_);
-    }
-    
+    // A fallback after an explicit return is unreachable but valid WASM.
+    funcCode.push(Opcode.f32_const, ...f32(0), Opcode.return_);
+
     exitScope(state);
     
     userFuncBodies.push({
@@ -721,7 +660,7 @@ export function emitter(ast: Program, options: EmitterOptions = {}): Uint8Array 
 
   // Calculate pages needed: RGBA = 4 bytes/pixel, page = 64KB
   // For 500x500 canvas: 500*500*4 = 1,000,000 bytes = ~16 pages
-  const pixelBytes = CANVAS_WIDTH * CANVAS_HEIGHT * 4;
+  const pixelBytes = state.width * state.height * 4;
   const pagesNeeded = Math.ceil(pixelBytes / 65536);
   const memoryPages = Math.max(1, pagesNeeded);
   

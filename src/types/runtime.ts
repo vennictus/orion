@@ -3,7 +3,8 @@
 export interface Runtime {
   (
     src: string,
-    environment: Environment
+    environment: Environment,
+    options?: { width?: number; height?: number }
   ): Promise<TickFunction>;
 }
 

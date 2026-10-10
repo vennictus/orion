@@ -76,6 +76,8 @@ export interface WhileStatementNode extends ProgramNode {
   type: "whileStatement";
   condition: ExpressionNode;
   body: StatementNode[];
+  /** Desugared for-loop update, also executed after continue. */
+  update?: StatementNode[];
 }
 
 export interface BreakStatementNode extends ProgramNode {

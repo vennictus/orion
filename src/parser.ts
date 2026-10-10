@@ -36,7 +36,9 @@ export const parse: Parser = (tokens) => {
   let current = iterator.next().value as Token | undefined;
 
   const eat = (expectedValue?: string) => {
-    if (!current) return;
+    if (!current) {
+      throw new ParserError(expectedValue ? `Expected '${expectedValue}', got end of input` : "Unexpected end of input", tokens[tokens.length - 1]);
+    }
 
     if (expectedValue && current.value !== expectedValue) {
       throw new ParserError(
@@ -46,6 +48,13 @@ export const parse: Parser = (tokens) => {
     }
 
     current = iterator.next().value;
+  };
+
+  const readOperator = (token: Token): Operator => {
+    if (!["+", "-", "*", "/", "==", "!=", "<", ">", "<=", ">=", "&&", "||"].includes(token.value)) {
+      throw new ParserError(`Invalid expression operator '${token.value}'`, token);
+    }
+    return token.value as Operator;
   };
 
   /* ---------- EXPRESSIONS ---------- */
@@ -80,6 +89,7 @@ export const parse: Parser = (tokens) => {
     // -------- NUMBER --------
     if (current.type === "number") {
       const value = Number(current.value);
+      if (!Number.isFinite(value) || !Number.isFinite(Math.fround(value))) throw new ParserError("Number is outside the finite f32 range", current);
       eat();
       return {
         type: "numberLiteral",
@@ -98,22 +108,20 @@ export const parse: Parser = (tokens) => {
       const nextToken = current as Token | undefined;
       if (nextToken && nextToken.type === "parens" && nextToken.value === "(") {
         // Only treat as call if ( is adjacent to identifier (no whitespace)
-        if (nextToken.char === identToken.char + identToken.value.length) {
+        if (nextToken.line === identToken.line && nextToken.char === identToken.char + identToken.value.length) {
           eat("(");
           const args: ExpressionNode[] = [];
           
-          // Parse comma-separated arguments
           let tok = current as Token | undefined;
-          while (tok && !(tok.type === "parens" && tok.value === ")")) {
-            args.push(parseExpression());
-            tok = current as Token | undefined;
-            // Skip comma if present
-            if (tok && tok.type === "parens" && tok.value === ",") {
-              eat(",");
+          if (tok?.value !== ")") {
+            while (true) {
+              args.push(parseExpression());
               tok = current as Token | undefined;
+              if (tok?.value === ")") break;
+              eat(",");
             }
           }
-          
+
           const closeToken = current as Token | undefined;
           if (!closeToken || closeToken.value !== ")") {
             throw new ParserError("Expected ')' after function arguments", closeToken);
@@ -140,12 +148,16 @@ export const parse: Parser = (tokens) => {
 
       const left = parseExpression();
 
-      const operatorToken = current;
+      const operatorToken = current as Token | undefined;
+      if (operatorToken?.value === ")") {
+        eat(")");
+        return left;
+      }
       if (!operatorToken || operatorToken.type !== "operator") {
         throw new ParserError("Expected operator", operatorToken);
       }
 
-      const operator = operatorToken.value as Operator;
+      const operator = readOperator(operatorToken);
       eat();
 
       const right = parseExpression();
@@ -303,7 +315,7 @@ export const parse: Parser = (tokens) => {
 
     const opToken = current;
     if (opToken && opToken.type === "operator") {
-      const operator = opToken.value as Operator;
+      const operator = readOperator(opToken);
       eat();
 
       const right = parseExpression();
@@ -352,7 +364,7 @@ export const parse: Parser = (tokens) => {
     let condition: ExpressionNode = left;
 
     if (current && current.type === "operator") {
-      const operator = current.value as Operator;
+      const operator = readOperator(current);
       eat();
       const right = parseExpression();
 
@@ -429,8 +441,8 @@ export const parse: Parser = (tokens) => {
             right: endExpr,
             operator: "<",
           },
-          body: [
-            ...body,
+          body,
+          update: [
             {
               type: "assignmentStatement",
               name: loopVar,
@@ -503,14 +515,16 @@ export const parse: Parser = (tokens) => {
 
     const params: string[] = [];
     let paramToken = current as Token | undefined;
-    while (paramToken && paramToken.type === "identifier") {
-      params.push(paramToken.value);
-      eat();
-      paramToken = current as Token | undefined;
-      // Skip comma if present
-      if (paramToken && paramToken.type === "parens" && paramToken.value === ",") {
-        eat(",");
+    if (paramToken?.value !== ")") {
+      while (true) {
         paramToken = current as Token | undefined;
+        if (!paramToken || paramToken.type !== "identifier") throw new ParserError("Expected parameter name", paramToken);
+        if (params.includes(paramToken.value)) throw new ParserError(`Duplicate parameter '${paramToken.value}'`, paramToken);
+        params.push(paramToken.value);
+        eat();
+        paramToken = current as Token | undefined;
+        if (paramToken?.value === ")") break;
+        eat(",");
       }
     }
 
