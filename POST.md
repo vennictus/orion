@@ -12,4 +12,4 @@ Next: porting the compiler to Rust, with the same behavior fixtures to keep it h
 
 Code: https://github.com/vennictus/orion
 
-*Before publishing: attach the playground and Lab screenshots; add the public demo URL after deployment. The article draft is in BLOG.md. No post has been published.*
+*Article draft: [BLOG.md](BLOG.md).*

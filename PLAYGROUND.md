@@ -15,7 +15,7 @@ Build with `npm run build`; inspect that exact build with `npm run preview`.
 
 ## Explore
 
-The program chooser contains three guided compiler lessons and twelve graphics/functions
+The program list contains three guided compiler lessons and twelve graphics/functions
 examples. Selecting a graphics example runs it at its suggested canvas size.
 Selecting a lesson compiles it and opens the Lab without executing it.
 
@@ -30,7 +30,7 @@ compiler output scroll within their own panes.
 **Take a closer look** opens the Lab for the current editor contents. It compiles
 only when the source or canvas dimensions have changed; it never substitutes a
 lesson or executes the program. Opening the Lab preserves the last execution's
-canvas and console. Lessons are selected explicitly in the program chooser.
+canvas and console. Lessons are selected explicitly from the program list or phone selector.
 
 ## Output
 
@@ -101,9 +101,9 @@ Restored and shared programs compile on opening without automatically executing.
 
 ## Troubleshooting
 
-A syntax error appears in the console and, when it has source coordinates, as an
-editor marker. Semantic errors currently identify names but do not all carry source
-spans. Missing `end`, wrong arity, duplicate declarations, or return outside a
+A failed Run reports syntax errors in the console; a failed Compile reports them
+in the Lab. Errors with source coordinates also appear as editor markers. Semantic
+errors currently identify names but do not all carry source spans. Missing `end`, wrong arity, duplicate declarations, or return outside a
 function are errors. Functions cannot access the top-level run function's locals.
 
 A time-limit message usually means a loop does not advance, or the workload is too
@@ -111,9 +111,8 @@ large for the eight-second limit. Deep recursion can exhaust the WASM call stack
 Numeric coordinate/channel conversions can trap for NaN, infinity, or values outside
 signed i32 range. Arithmetic and variables use f32, so high precision is not promised.
 
-## Static hosting
+## Hosting
 
-Deploy the built `dist/` directory when ready. No server-side execution, API keys,
-or environment variables are required. Use HTTPS for reliable clipboard support.
-Configure Vite's base path if hosting below an origin subpath. Hosting and public
-publication were deliberately deferred for this change.
+The playground is served as static files over HTTPS. Compilation and execution
+run in the browser, with no server-side compiler or runtime. Shared source lives
+in the URL fragment; the application does not upload it to a backend.

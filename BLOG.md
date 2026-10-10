@@ -24,18 +24,21 @@ print (2 + 3)
 
 The tokenizer identifies `print`, the parentheses, two numbers, and an addition operator. Each token keeps its line and column so the parser can point back to the source.
 
-The parser turns that sequence into a print statement containing a binary expression. Parentheses establish the expression boundary; precedence determines which operations belong together. It checks the grammar here rather than hoping the WebAssembly engine will reject a bad result later.
+The parser turns that sequence into a print statement containing a binary expression. Nested parentheses determine which operations belong together; the parser does not apply conventional operator precedence. It checks the grammar here rather than hoping the WebAssembly engine will reject a bad result later.
 
-The emitter walks the expression and places values on WebAssembly's operand stack. Conceptually, the interesting part is:
+The emitter walks the expression and places values on WebAssembly's operand stack. For this program, the emitted instruction sequence is:
 
 ```text
-f32.const 2
-f32.const 3
+i32.const 2
+f32.convert_i32_s
+i32.const 3
+f32.convert_i32_s
 f32.add
-call print_f32
+call 0
+end
 ```
 
-The first two instructions push values. Addition pops two operands and pushes one result. The imported print function consumes that result and hands it to the host.
+The integer constants push values, and each conversion changes its operand to f32. Addition pops two f32 operands and pushes one result. Function index 0 is the imported print_f32 function; it consumes that result and hands it to the host.
 
 `f32.add` is encoded as `92` in hexadecimal. That is an actual byte in the emitted module. The Lab shows the instruction's absolute offset, and clicking it takes you to that byte.
 

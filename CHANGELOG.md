@@ -1,6 +1,6 @@
 # ORION changelog
 
-## 1.1.0 — 9 October 2026
+## 1.1.0 — 9–10 October 2026
 
 The playground now includes a compiler Lab and warm light/dark themes.
 
@@ -25,8 +25,10 @@ The playground now includes a compiler Lab and warm light/dark themes.
 ### Playground and Lab
 
 - Deep cream/orange interface with serif headings, matching charcoal dark theme,
-  persisted theme choice, a grouped example chooser and two-panel workspace,
+  persisted theme choice, a visible grouped program sidebar and two working panels,
   accessible dialogs and controls, and reduced-motion support.
+- Viewport-fitting layout with internal pane scrolling; phones use a native program
+  selector and Code / Result controls, with Stop available during execution.
 - Actual token table with source selection, expandable lowered AST, function-level
   binary instruction decoding, sectioned hex, linked byte highlighting, WASM download.
 - Three guided lessons: arithmetic, nested loop branches, and recursive factorial.
@@ -50,7 +52,7 @@ The playground now includes a compiler Lab and warm light/dark themes.
 - Portable JSON conformance fixtures establish a baseline for a future Rust port.
 - Typecheck now includes tests plus a browser configuration covering the UI and workers.
 - README, guide, architecture, and playground docs reconciled with implementation.
-- Production static build prepared. Hosting/publication deferred at the user's request.
+- Static playground published publicly on 10 October.
 
 ## March–April 2026 — Earlier feature work
 

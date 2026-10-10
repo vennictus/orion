@@ -133,7 +133,7 @@ an approximation from the AST.
 See [GUIDE.md](GUIDE.md), [ARCHITECTURE.md](ARCHITECTURE.md), and
 [PLAYGROUND.md](PLAYGROUND.md) for implementation and usage details.
 [BLOG.md](BLOG.md) is an editable article draft; [POST.md](POST.md) contains a
-short release post draft. Nothing has been published automatically.
+short release post draft.
 
 ## Limits
 
@@ -149,13 +149,11 @@ The low-level runtime's tick is synchronous and has no deadline; applications mu
 isolate it themselves. The playground provides that isolation. Timing figures are
 per-run measurements, not benchmark claims.
 
-## Publish later
+## Hosting
 
-`npm run build` produces `dist/`, ready for a static host. It needs no backend or
-secrets. Netlify Drop accepts the folder; Git-based hosting uses build command
-`npm run build` and publish directory `dist`. Use HTTPS for clipboard sharing.
-The default Vite base path assumes hosting at an origin root; configure `base` for
-subpath hosting such as a GitHub Pages project URL.
+The playground is a static Vite application. Its production build requires no
+backend, API keys, or environment variables. Compilation and execution happen in
+the browser; program source stays on the visitor's device unless they share it.
 
 ## License
 

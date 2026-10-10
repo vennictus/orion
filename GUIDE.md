@@ -2,7 +2,8 @@
 
 This guide describes the current TypeScript implementation. The fastest way to
 follow it is to open the playground and choose **An expression becomes bytes**.
-Keep the source visible while stepping through the Lab.
+On desktop, keep the source visible beside the Lab. On phones, switch between
+Code and Result to follow the same stages.
 
 ## 1. Start with one observable result
 
