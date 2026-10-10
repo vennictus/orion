@@ -1,587 +1,66 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ORION // ASTRA</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    :root {
-      --bg-primary: #0c1220;
-      --bg-secondary: #101828;
-      --bg-tertiary: #162032;
-      --border: #1e2d42;
-      --text-primary: #f0f4f8;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --orange: #f97316;
-      --gold: #fbbf24;
-      --teal: #2dd4bf;
-      --green: #22c55e;
-      --rose: #f43f5e;
-    }
-
-    html, body {
-      height: 100%;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .app {
-      display: grid;
-      grid-template-rows: auto auto 1fr auto;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       HEADER
-       ═══════════════════════════════════════════════════════════════════ */
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 24px;
-      background: var(--bg-primary);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .logo {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--orange);
-      letter-spacing: 1px;
-    }
-
-    .engine-status {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 10px;
-      color: var(--text-secondary);
-      letter-spacing: 1px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       TOOLBAR
-       ═══════════════════════════════════════════════════════════════════ */
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 24px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .toolbar-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .toolbar-btn:hover {
-      border-color: var(--gold);
-      color: var(--gold);
-    }
-
-    .toolbar-btn svg {
-      width: 12px;
-      height: 12px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2;
-    }
-
-    .toolbar-select {
-      padding: 8px 32px 8px 14px;
-      background: var(--bg-tertiary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") right 10px center no-repeat;
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      appearance: none;
-      transition: all 0.15s;
-    }
-
-    .toolbar-select:hover {
-      border-color: var(--gold);
-      color: var(--text-primary);
-    }
-
-    .toolbar-select:focus {
-      outline: none;
-      border-color: var(--orange);
-    }
-
-    .spacer { flex: 1; }
-
-    .file-name {
-      font-size: 11px;
-      color: var(--gold);
-      letter-spacing: 0.5px;
-    }
-
-    .toolbar-metrics {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .toolbar-metric {
-      display: flex;
-      align-items: baseline;
-      gap: 6px;
-      font-size: 11px;
-    }
-
-    .toolbar-metric .metric-label {
-      color: var(--text-muted);
-      font-size: 9px;
-      letter-spacing: 0.5px;
-    }
-
-    .toolbar-metric span:last-child {
-      color: var(--gold);
-      font-weight: 500;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       MAIN LAYOUT
-       ═══════════════════════════════════════════════════════════════════ */
-    .main {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      overflow: hidden;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       CODE PANEL
-       ═══════════════════════════════════════════════════════════════════ */
-    .code-panel {
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid var(--border);
-      overflow: hidden;
-    }
-
-    #editor-container {
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .code-footer {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 12px 16px;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border);
-    }
-
-    .run-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 12px 28px;
-      background: transparent;
-      border: 1px solid var(--orange);
-      color: var(--orange);
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 500;
-      letter-spacing: 1px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .run-btn:hover {
-      background: var(--orange);
-      color: var(--bg-primary);
-      box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
-    }
-
-    .run-btn svg {
-      width: 12px;
-      height: 12px;
-      fill: currentColor;
-    }
-
-    .shortcut {
-      font-size: 10px;
-      color: var(--text-muted);
-      padding: 4px 8px;
-      background: var(--bg-tertiary);
-      border-radius: 4px;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       OUTPUT PANEL
-       ═══════════════════════════════════════════════════════════════════ */
-    .output-panel {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: var(--bg-primary);
-    }
-
-    /* Canvas Section */
-    .canvas-section {
-      display: flex;
-      flex-direction: column;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-    }
-
-    .section-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 11px;
-      color: var(--text-secondary);
-      letter-spacing: 1px;
-    }
-
-    .canvas-controls {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .size-label {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-left: 8px;
-    }
-
-    .size-input {
-      width: 56px;
-      padding: 4px 6px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      color: var(--text-primary);
-      font-family: inherit;
-      font-size: 11px;
-      text-align: center;
-    }
-
-    .size-input:focus {
-      outline: none;
-      border-color: var(--orange);
-    }
-
-    .size-btn {
-      width: 22px;
-      height: 22px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .size-btn:hover {
-      border-color: var(--gold);
-      color: var(--gold);
-    }
-
-    .canvas-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 350px;
-      padding: 16px;
-      background: var(--bg-secondary);
-      border-radius: 4px;
-    }
-
-    #canvas {
-      display: block;
-      image-rendering: pixelated;
-      border: 1px solid var(--border);
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       CONSOLE
-       ═══════════════════════════════════════════════════════════════════ */
-    .console-section {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 200px;
-      overflow: hidden;
-    }
-
-    .console-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 20px;
-      background: var(--bg-secondary);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-
-    .clear-console-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-family: inherit;
-      font-size: 10px;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: color 0.15s;
-    }
-
-    .clear-console-btn:hover {
-      color: var(--rose);
-    }
-
-    .clear-console-btn svg {
-      width: 12px;
-      height: 12px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2;
-    }
-
-    #console {
-      flex: 1;
-      padding: 12px 20px;
-      background: var(--bg-primary);
-      overflow-y: auto;
-      font-size: 11px;
-      line-height: 1.8;
-      min-height: 120px;
-    }
-
-    .log-line {
-      display: flex;
-      gap: 12px;
-    }
-
-    .log-time {
-      color: var(--text-muted);
-      flex-shrink: 0;
-    }
-
-    .log-msg { color: var(--text-secondary); }
-    .log-info { color: var(--orange); }
-    .log-success { color: var(--green); }
-    .log-warn { color: var(--gold); }
-    .log-error { color: var(--rose); }
-
-    .log-prompt {
-      color: var(--text-muted);
-      margin-top: 8px;
-    }
-
-    /* ═══════════════════════════════════════════════════════════════════
-       STATUS BAR
-       ═══════════════════════════════════════════════════════════════════ */
-    .status-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 24px;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border);
-      font-size: 10px;
-      color: var(--text-muted);
-      letter-spacing: 0.5px;
-    }
-
-    .status-bar-left,
-    .status-bar-right {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .status-item.active {
-      color: var(--green);
-    }
-
-    .status-item.gold {
-      color: var(--gold);
-    }
-
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-  </style>
+  <meta name="theme-color" content="#eee5d7" />
+  <script>try{const saved=localStorage.getItem('orion.theme');document.documentElement.dataset.theme=saved==='light'||saved==='dark'?saved:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}catch{document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}</script>
+  <meta name="description" content="Write a small program. See the pixels, tokens, syntax tree, WebAssembly instructions, and the bytes that make it run. ORION is a compiler you can look inside." />
+  <meta property="og:title" content="ORION — A compiler you can look inside" />
+  <meta property="og:description" content="An ASTRA playground and compilation lab. From a line of code to WebAssembly, in your browser." />
+  <title>ORION — A compiler you can look inside</title>
+  <link rel="icon" type="image/svg+xml" href="/orion.svg" />
 </head>
 <body>
-  <div class="app">
-    <!-- Header -->
-    <header class="header">
-      <div class="logo">ORION // ASTRA</div>
-      <span class="file-name" id="file-name">EXAMPLES/MANDELBROT.ASTRA</span>
-      <div class="engine-status">
-        <span class="status-dot"></span>
-        <span>WASM_ENGINE: ACTIVE</span>
-      </div>
-    </header>
-
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <select class="toolbar-select" id="examples">
-        <option value="">EXAMPLES</option>
-        <optgroup label="━━ Fractals ━━">
-          <option value="mandelbrot">Mandelbrot Set</option>
-          <option value="julia">Julia Set</option>
-          <option value="burningship">Burning Ship</option>
-        </optgroup>
-        <optgroup label="━━ Patterns ━━">
-          <option value="gradient">Rainbow Gradient</option>
-          <option value="checkerboard">Checkerboard</option>
-          <option value="stripes">Diagonal Stripes</option>
-          <option value="plasma">Plasma Effect</option>
-        </optgroup>
-        <optgroup label="━━ Shapes ━━">
-          <option value="circles">Concentric Circles</option>
-          <option value="sierpinski">Sierpinski Triangle</option>
-          <option value="crosshatch">Crosshatch</option>
-        </optgroup>
-        <optgroup label="━━ Functions ━━">
-          <option value="functions">Functions Demo</option>
-          <option value="recursive">Recursive Factorial</option>
-        </optgroup>
-      </select>
-      <button class="toolbar-btn" id="format-btn">
-        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h12"/></svg>
-        FORMAT
-      </button>
-      <span class="spacer"></span>
-      <div class="toolbar-metrics">
-        <span class="toolbar-metric"><span class="metric-label">COMPILE</span><span id="metric-compile">—</span></span>
-        <span class="toolbar-metric"><span class="metric-label">EXEC</span><span id="metric-exec">—</span></span>
-        <span class="toolbar-metric"><span class="metric-label">WASM</span><span id="metric-wasm">—</span></span>
-        <span class="toolbar-metric"><span class="metric-label">TOKENS</span><span id="metric-tokens">—</span></span>
-        <span class="toolbar-metric"><span class="metric-label">AST</span><span id="metric-ast">—</span></span>
-      </div>
-    </div>
-
-    <!-- Main Content -->
-    <main class="main">
-      <!-- Code Panel -->
-      <section class="code-panel">
-        <div id="editor-container"></div>
-        <div class="code-footer">
-          <button class="run-btn" id="clear-btn" style="border-color: var(--text-muted); color: var(--text-muted);">
-            <svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2"><path d="M3 6h18M8 6V4h8v2M5 6l1 14h12l1-14M10 11v6m4-6v6"/></svg>
-            CLEAR
-          </button>
-          <button class="run-btn" id="run-btn">
-            <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
-            RUN PROGRAM
-          </button>
-          <span class="shortcut">Ctrl+Enter</span>
-          <span class="spacer"></span>
-        </div>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="ORION home"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2 20 12 30 16 20 20 16 30 12 20 2 16 12 12Z" fill="currentColor"/></svg><span>orion</span><span class="brand-divider"></span><span class="brand-note">The compiler, open.</span></a>
+    <nav aria-label="Project"><button id="about-btn" class="text-button">About ASTRA</button><a href="https://github.com/vennictus/orion" target="_blank" rel="noopener noreferrer">Source <span aria-hidden="true">↗</span></a><button id="theme-toggle" class="theme-toggle" aria-label="Switch to dark theme" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 12.5A7 7 0 0 1 7.5 4a7 7 0 1 0 8.5 8.5Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span id="theme-label">Dark</span></button></nav>
+  </header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">ASTRA → WebAssembly</p><h1>A compiler you can <em>look inside.</em></h1><p class="intro-copy">Write a little code. Make something visible. Follow every byte.</p></div>
+      <div class="intro-actions"><button id="share-btn" class="button secondary">Share program <span aria-hidden="true">↗</span></button><button id="learn-btn" class="button secondary">Take a closer look <span aria-hidden="true">→</span></button></div>
+    </section>
+    <div class="workspace">
+      <aside class="library" aria-label="Example library"><div class="library-heading">Programs<span>Pick one to explore</span></div><div id="library-list"></div></aside>
+      <div class="workspace-bar"><div class="program-picker"><span class="workspace-label">Program</span><span id="current-example-name" class="example-picker">Mandelbrot Set</span><select id="mobile-program" aria-label="Choose a program"><option value="">Custom program</option></select><button id="current-example-info" class="example-info-button" aria-label="About current example" aria-haspopup="dialog">i</button></div><span class="local-note"><span class="local-dot"></span>Runs locally in your browser</span><div class="mobile-panels" role="group" aria-label="Visible panel"><button id="mobile-code" aria-pressed="true">Code</button><button id="mobile-result" aria-pressed="false">Result</button></div></div>
+      <section class="source-panel" aria-labelledby="source-title">
+        <div class="panel-toolbar"><div class="file-label"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 1.5h5l3 3v10H4zM9 1.5v3h3" fill="none" stroke="currentColor" stroke-linejoin="round"/></svg><span id="source-title">mandelbrot.astra</span><span id="edited-dot" hidden aria-label="Changed since last build">●</span></div><button id="format-btn" class="text-button" title="Indent blocks">Format</button></div>
+        <div class="editor-wrap"><div id="editor-container" aria-label="ASTRA source code"></div></div>
+        <div class="editor-footer"><span id="source-position">Ln 1, Col 1</span><span>ASTRA · f32 numbers</span></div>
+        <div class="run-bar"><button id="run-btn" class="button primary"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m5 3 8 5-8 5z" fill="currentColor"/></svg>Run program</button><button id="stop-btn" class="button stop" disabled>Stop</button><span class="shortcut" title="Command or Control + Enter">⌘ / Ctrl ↵</span></div>
       </section>
-
-      <!-- Output Panel -->
-      <section class="output-panel">
-        <!-- Canvas -->
-        <div class="canvas-section">
-          <div class="section-header">
-            <div class="section-title">
-              <span class="status-dot"></span>
-              VISUAL_OUTPUT.CANVAS
-            </div>
-            <div class="canvas-controls">
-              <span class="size-label">W</span>
-              <button class="size-btn" id="width-dec">−</button>
-              <input type="number" class="size-input" id="canvas-width" value="100" min="50" max="500" step="50">
-              <button class="size-btn" id="width-inc">+</button>
-              <span class="size-label" style="margin-left:12px">H</span>
-              <button class="size-btn" id="height-dec">−</button>
-              <input type="number" class="size-input" id="canvas-height" value="100" min="50" max="500" step="50">
-              <button class="size-btn" id="height-inc">+</button>
-            </div>
-          </div>
-          <div class="canvas-wrapper">
-            <canvas id="canvas" width="100" height="100"></canvas>
-          </div>
+      <section class="result-panel" aria-label="Program output and compiler lab">
+        <div class="panel-toolbar result-toolbar"><div class="segmented" role="tablist" aria-label="Workspace view"><button id="view-output" role="tab" aria-selected="true" aria-controls="output-view">Output</button><button id="view-lab" role="tab" aria-selected="false" aria-controls="lab-view">Lab</button></div><button id="mobile-stop" class="text-button">Stop</button><span id="run-state" role="status" aria-live="polite">Ready</span></div>
+        <div id="output-view" role="tabpanel" aria-labelledby="view-output">
+          <div class="canvas-toolbar"><div><span class="small-label">Canvas</span><span id="canvas-size">240 × 180</span></div><button id="save-image-btn" class="icon-button" title="Save canvas as PNG" aria-label="Save canvas as PNG">↓</button></div>
+          <div class="canvas-stage"><canvas id="canvas" width="240" height="180" aria-label="Program canvas output"></canvas><div id="canvas-empty" hidden>Pixel output appears here when your program draws.</div></div>
+          <div class="canvas-settings"><label>Width <input id="canvas-width" type="number" min="1" max="500" value="240" /></label><span aria-hidden="true">×</span><label>Height <input id="canvas-height" type="number" min="1" max="500" value="180" /></label><span class="setting-note">Up to 500 px</span></div>
+          <div class="console-heading"><span class="small-label"><span id="console-label">Console</span> <span id="output-count"></span></span><button id="clear-console-btn" class="text-button">Clear</button></div>
+          <div id="console" class="console" role="log" aria-label="Program console"></div>
         </div>
-
-        <!-- Console -->
-        <div class="console-section">
-          <div class="console-header">
-            <div class="section-title">
-              <span class="status-dot"></span>
-              CONSOLE
-            </div>
-            <button class="clear-console-btn" id="clear-console-btn">
-              <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M5 6l1 14h12l1-14M10 11v6m4-6v6"/></svg>
-              CLEAR
-            </button>
-          </div>
-          <div id="console"></div>
+        <div id="lab-view" role="tabpanel" aria-labelledby="view-lab" hidden>
+          <div class="lab-heading"><div><h2>Under the surface</h2><p id="lab-description">The real compiler output, one stage at a time.</p></div><button id="inspect-btn" class="button secondary small">Compile</button></div>
+          <div id="lesson" class="lesson" hidden><div class="lesson-top"><span id="lesson-step-label"></span><div><button id="lesson-prev" class="text-button" aria-label="Previous lesson step">←</button><button id="lesson-next" class="text-button" aria-label="Next lesson step">→</button></div></div><h3 id="lesson-title"></h3><p id="lesson-text"></p></div>
+          <div id="lab-tabs" class="lab-tabs" role="tablist" aria-label="Compilation stages"><button role="tab" aria-selected="true" data-stage="tokens" aria-controls="lab-content">Tokens</button><button role="tab" aria-selected="false" data-stage="ast" aria-controls="lab-content">AST</button><button role="tab" aria-selected="false" data-stage="instructions" aria-controls="lab-content">Instructions</button><button role="tab" aria-selected="false" data-stage="bytes" aria-controls="lab-content">Bytes</button></div>
+          <div id="lab-tools" class="lab-tools"><span id="lab-summary">Compile a program to inspect it.</span><select id="function-select" aria-label="Function to inspect" hidden></select></div>
+          <div id="lab-content" class="lab-content" role="tabpanel" tabindex="0"></div>
+          <div class="lab-footer"><span id="selection-info">Select an instruction to locate its bytes.</span><button id="download-wasm-btn" class="text-button" disabled>Download .wasm ↓</button></div>
         </div>
+        <div class="metrics" aria-label="Compilation and execution metrics"><div><span>Compile</span><strong id="metric-compile">—</strong></div><div><span>WASM validate</span><strong id="metric-validate">—</strong></div><div><span>Execute</span><strong id="metric-exec">—</strong></div><div><span>Module</span><strong id="metric-wasm">—</strong></div></div>
       </section>
-    </main>
-
-    <!-- Status Bar -->
-    <div class="status-bar">
-      <div class="status-bar-left">
-        <span>ORION v1.0.0</span>
-        <span class="status-item gold">ASTRA COMPILER</span>
-      </div>
-      <div class="status-bar-right">
-        <span>TOKENS: <span id="status-tokens">0</span></span>
-        <span>WASM: <span id="status-wasm">0B</span></span>
-        <span class="status-item active">READY</span>
-      </div>
     </div>
-  </div>
+    <footer class="page-footer"><span>Small language. Real WebAssembly.</span><span>ORION 1.1 <span aria-hidden="true">·</span> Made by <a href="https://github.com/vennictus" target="_blank" rel="noopener noreferrer">Ishjaap</a></span></footer>
+  </main>
+  <dialog id="about-dialog"><button id="close-about" class="dialog-close" aria-label="Close">×</button><p class="eyebrow">Meet ASTRA</p><h2>A small language with nothing to hide.</h2><p>ORION compiles ASTRA directly into WebAssembly binary bytes. Your browser executes the result. Open the Lab to inspect the stages in between.</p><pre>let x = 5
+print (x + 3)
 
+fn square(n)
+  return (n * n)
+end
+print square(7)</pre><p>Binary expressions use parentheses. Functions use comma-separated parameters. Loops and functions close with <code>end</code>. Numbers in variables are f32; logical operators evaluate both sides.</p><p>Run in an isolated worker. Stop at any time. Programs are limited to eight seconds and 1,000 console lines. Canvas writes outside its dimensions are ignored.</p><button id="about-learn" class="button primary">Explore the Lab →</button></dialog>
+  <dialog id="share-dialog"><button id="close-share" class="dialog-close" aria-label="Close">×</button><h2>Your program, in a link.</h2><p>The source is stored in the URL fragment. Anyone with this link can read and edit it. Shared programs are compiled on opening, but never run automatically.</p><input id="share-url" readonly aria-label="Shareable program URL" /><button id="copy-share" class="button primary">Copy link</button><span id="share-status" role="status"></span></dialog>
+  <dialog id="example-dialog" aria-labelledby="example-info-title"><button id="close-example" class="dialog-close" aria-label="Close example explanation">×</button><p class="eyebrow">Behind the picture</p><h2 id="example-info-title"></h2><p id="example-info-description"></p><pre id="example-info-formula"></pre><p id="example-info-rendering"></p><button id="example-info-done" class="button secondary">Back to exploring</button></dialog>
   <script type="module" src="/playground.ts"></script>
 </body>
 </html>

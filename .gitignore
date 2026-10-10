@@ -3,6 +3,10 @@ node_modules/
 
 # Build output
 dist/
+artifacts/*.zip
+artifacts/*.tar.gz
+.sites-release/
+.vercel/
 
 # Tooling cache
 .vite/

@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "module": "ESNext", "moduleResolution": "Bundler", "types": ["vite/client"] },
+  "include": ["src", "playground", "playground.ts", "main.ts", "vite.config.ts"]
+}

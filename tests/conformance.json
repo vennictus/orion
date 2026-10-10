@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Portable ASTRA behavior fixtures. Implementations should agree on observable output, RGBA memory, and error categories; binary identity is not required.",
+  "cases": [
+    { "name": "arithmetic", "source": "print ((2 + 3) * 4)", "output": [20] },
+    { "name": "scope", "source": "let x = 1 { let x = 10 print x } print x", "output": [10, 1] },
+    { "name": "fractional assignment", "source": "let x = 3 x = 2.75 print x", "output": [2.75] },
+    { "name": "for continuation", "source": "for i in 0..4 if (i == 1) continue end print i end", "output": [0, 2, 3] },
+    { "name": "stored while condition", "source": "let flag = 1 while (flag) print flag flag = 0 end", "output": [1] },
+    { "name": "logical normalization", "source": "print (2 && 1) print (2 || 1) print not -1", "output": [1, 1, 0] },
+    { "name": "recursion", "source": "fn f(n) if (n <= 1) return 1 end return (n * f((n - 1))) end print f(5)", "output": [120] },
+    { "name": "default return", "source": "fn f() let x = 3 end print f()", "output": [0] },
+    { "name": "RGBA", "source": "setpixelrgb 0 0 10 20 30 setpixel 1 0 128", "width": 2, "height": 1, "output": [], "memoryPrefix": [10, 20, 30, 255, 128, 128, 128, 255] },
+    { "name": "pixel clipping", "source": "setpixel 2 0 255 setpixel -1 0 255", "width": 2, "height": 1, "output": [], "memoryPrefix": [0, 0, 0, 0, 0, 0, 0, 0] },
+    { "name": "missing end", "source": "if (1) print 1", "errorContains": "Expected 'end'" },
+    { "name": "wrong arity", "source": "fn f(x) return x end print f()", "errorContains": "expects 1 arguments, got 0" }
+  ]
+}

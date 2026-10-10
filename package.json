@@ -1,12 +1,13 @@
 {
   "name": "orion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A WebAssembly compiler for the ASTRA language",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit",
-    "test": "ts-node src/index.ts"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.browser.json",
+    "test": "ts-node src/index.ts && ts-node tests/regressions.ts",
+    "preview": "vite preview --host 127.0.0.1"
   },
   "keywords": [
     "wasm",
