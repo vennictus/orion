@@ -1,6 +1,6 @@
 # ORION 1.1 — Playground and Lab
 
-Public playground: https://orion-playground.cocoadace4.chatgpt.site
+Public playground: https://orion-pi-two.vercel.app/
 
 The header theme button switches between deep cream/orange and charcoal.
 It follows the system preference until you choose a theme, then remembers that
@@ -94,7 +94,9 @@ including worker startup. A cancelled or timed-out program can be corrected and
 run again immediately. The main editor stays responsive during a WASM loop.
 
 The app saves the current source, example identity, and dimensions in localStorage.
-It does not upload code or use analytics. Share puts source and dimensions in a URL
+Vercel Web Analytics counts visits and page views in production. Reported page URLs
+exclude query strings and fragments, including shared program source. The app does
+not upload code. Share puts source and dimensions in a URL
 fragment and opens a copy dialog. Treat the URL as readable source. Large programs
 can produce impractically long share links; sharing a file is preferable for those.
 Restored and shared programs compile on opening without automatically executing.

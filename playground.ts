@@ -5,6 +5,18 @@ import { RUN_TIMEOUT_MS, MAX_OUTPUT_LINES, WorkerResponse } from './playground/p
 import type { Instruction } from './src/wasm/inspect';
 import './playground/styles.css';
 import { EXAMPLE_INFO } from './playground/example-info';
+import { inject } from '@vercel/analytics';
+
+if (import.meta.env.PROD) {
+  inject({
+    mode: 'production',
+    beforeSend(event) {
+      // Shared programs live in the fragment; report only the page's origin and path.
+      const url = new URL(event.url, location.origin);
+      return { ...event, url: `${url.origin}${url.pathname}` };
+    },
+  });
+}
 
 (globalThis as typeof globalThis & { MonacoEnvironment: unknown }).MonacoEnvironment = { getWorker: () => new EditorWorker() };
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;

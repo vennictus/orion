@@ -44,8 +44,9 @@ charcoal dark theme. The theme toggle follows your system initially and remember
 your choice. Small info buttons explain each graphics/functions example without
 running it. A grouped program list sits beside the editor; on phones, a native selector keeps it compact.
 “Take a closer look” inspects your current source and preserves the last output.
-No external font or analytics
-service is loaded. Source is not uploaded by the app; copying a share link is an
+No external fonts are loaded. Vercel Web Analytics counts visits and page views;
+query strings and fragments are removed from reported page URLs.
+Source is not uploaded by the app; copying a share link is an
 explicit way to disclose its contents to recipients.
 
 ## ASTRA in a minute
